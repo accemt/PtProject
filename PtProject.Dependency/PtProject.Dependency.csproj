@@ -7,8 +7,8 @@
     <ProjectGuid>{1BABD5C4-F2A9-4540-9F03-76C7A2EA03D1}</ProjectGuid>
     <OutputType>Exe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Dependency</RootNamespace>
-    <AssemblyName>Dependency</AssemblyName>
+    <RootNamespace>PtProject.Dependency</RootNamespace>
+    <AssemblyName>PtProject.Dependency</AssemblyName>
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
