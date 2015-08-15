@@ -4,17 +4,15 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{1BABD5C4-F2A9-4540-9F03-76C7A2EA03D1}</ProjectGuid>
-    <OutputType>Exe</OutputType>
+    <ProjectGuid>{6F1C3E27-F8DA-46E7-BB92-07DFD156117D}</ProjectGuid>
+    <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>PtProject.Dependency</RootNamespace>
-    <AssemblyName>PtProject.Dependency</AssemblyName>
+    <RootNamespace>PtProject.Domain</RootNamespace>
+    <AssemblyName>PtProject.Domain</AssemblyName>
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
-    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <PlatformTarget>AnyCPU</PlatformTarget>
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
@@ -24,7 +22,6 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <PlatformTarget>AnyCPU</PlatformTarget>
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
     <OutputPath>bin\Release\</OutputPath>
@@ -33,9 +30,6 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="MathNet.Numerics">
-      <HintPath>..\libs\MathNet.Numerics.dll</HintPath>
-    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
@@ -46,22 +40,14 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Program.cs" />
+    <Compile Include="DataRow.cs" />
+    <Compile Include="FactorStat.cs" />
+    <Compile Include="FinalFuncResult.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Util.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="App.config" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\PtProject.DataLoader\PtProject.DataLoader.csproj">
-      <Project>{987c0363-6879-4ff3-9606-9aef32e5d648}</Project>
-      <Name>PtProject.DataLoader</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\PtProject.Domain\PtProject.Domain.csproj">
-      <Project>{6f1c3e27-f8da-46e7-bb92-07dfd156117d}</Project>
-      <Name>PtProject.Domain</Name>
-    </ProjectReference>
+    <Compile Include="StatItem.cs" />
+    <Compile Include="TupleData.cs" />
+    <Compile Include="Util\Logger.cs" />
+    <Compile Include="Util\ResultCalc.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
