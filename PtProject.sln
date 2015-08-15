@@ -5,6 +5,12 @@ VisualStudioVersion = 14.0.23107.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dependency", "Dependency\Dependency.csproj", "{1BABD5C4-F2A9-4540-9F03-76C7A2EA03D1}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "libs", "libs", "{0D48DA2D-17CA-42AD-B312-8E8B5C91B266}"
+	ProjectSection(SolutionItems) = preProject
+		libs\libs.txt = libs\libs.txt
+		libs\MathNet.Numerics.dll = libs\MathNet.Numerics.dll
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
