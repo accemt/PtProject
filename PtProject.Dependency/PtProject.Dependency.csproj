@@ -52,6 +52,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
+    <None Include="data.csv" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PtProject.DataLoader\PtProject.DataLoader.csproj">
