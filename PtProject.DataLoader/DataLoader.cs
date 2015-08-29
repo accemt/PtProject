@@ -39,6 +39,8 @@ namespace PtProject.DataLoader
         public Dictionary<int, T> ValueByClassNum = new Dictionary<int, T>();
         public Dictionary<string, string> DropIds;
 
+        private Dictionary<int, int> _idIdx = new Dictionary<int, int>(); // id indexes (many)
+
         /// <summary>
         /// Id column by default skipped and can be multiply
         /// </summary>
@@ -106,9 +108,6 @@ namespace PtProject.DataLoader
                 }
 
                 var sr = new StreamReader(new FileStream(filename, FileMode.Open, FileAccess.Read), Encoding.GetEncoding(1251));
-
-                char splitter = ';';
-                var idIdx = new Dictionary<int, int>(); // id indexes (many)
                 var rnd = new Random(DateTime.Now.Millisecond + DateTime.Now.Second * 1000);
 
                 int idx = 0;
@@ -119,7 +118,7 @@ namespace PtProject.DataLoader
                 {
                     idx++;
                     if (string.IsNullOrWhiteSpace(nextline)) continue;
-                    string[] blocks = nextline.ToLower().Replace(',','.').Split(splitter);
+                    string[] blocks = GetStringBlocks(nextline);
 
                     // header row
                     if (idx == 1)
@@ -145,15 +144,15 @@ namespace PtProject.DataLoader
                             }
                         }
 
-                        if (TargetName!=null)
+                        if (TargetName != null)
                             TargetIdx = IdxByColumn[TargetName]; // target column index
 
-                        if (IdName!=null) // id column indexes
+                        if (IdName != null) // id column indexes
                         {
                             foreach (var iname in IdName.Keys)
                             {
                                 int sidx = IdxByColumn[iname];
-                                if (!idIdx.ContainsKey(sidx)) idIdx.Add(sidx, 1);
+                                if (!_idIdx.ContainsKey(sidx)) _idIdx.Add(sidx, 1);
                             }
                         }
 
@@ -167,24 +166,21 @@ namespace PtProject.DataLoader
 
                     // data row
                     nrow++;
+
+                    if (blocks.Length > IdxByColumn.Count)
+                    {
+                        Logger.Log("error parsing row #" + nrow);
+                        continue;
+                    }
+
                     if (rnd.NextDouble() >= LoadFactor) continue;
 
                     var row = new DsfDataRow<T>();
-                    if (TargetName!=null)
+                    if (TargetName != null)
                         row.Target = ParseValue(blocks[TargetIdx]);
                     if (IdName != null) // creating composite id
                     {
-                        var sb = new StringBuilder();
-                        int nidx = 0;
-                        foreach (var sidx in idIdx.Keys)
-                        {
-                            if (nidx==0)
-                                sb.Append(blocks[sidx]);
-                            else
-                                sb.Append(";"+blocks[sidx]);
-                            nidx++;
-                        }
-                        row.Id = sb.ToString();
+                        row.Id = GetStringId(blocks);
                     }
 
                     if (DropIds != null && DropIds.ContainsKey(row.Id)) continue;
@@ -202,7 +198,7 @@ namespace PtProject.DataLoader
 
                     if (IsLoadForLearning) // loading for learning
                     {
-                        if (LearnRows==null)
+                        if (LearnRows == null)
                         {
                             LearnRows = new T[TotalDataLines, NVars + 1]; // all variables +1 for target
                         }
@@ -214,7 +210,7 @@ namespace PtProject.DataLoader
                             if (_skippedColumns.ContainsKey(colname))
                                 continue;
 
-                            LearnRows[nrow-1,k++] = ParseValue(cval);
+                            LearnRows[nrow - 1, k++] = ParseValue(cval);
                         }
                         LearnRows[nrow - 1, NVars] = row.Target;
                     }
@@ -225,19 +221,25 @@ namespace PtProject.DataLoader
                         for (int i = 0, k = 0; i < blocks.Length; i++)
                         {
                             string cval = blocks[i];
-                            string colname = ColumnByIdx[i];
-                            if (_skippedColumns.ContainsKey(colname))
-                                continue;
-
-                            carray[k++] = ParseValue(cval);
+                            if (ColumnByIdx.ContainsKey(i))
+                            {
+                                string colname = ColumnByIdx[i];
+                                if (_skippedColumns.ContainsKey(colname))
+                                    continue;
+                                carray[k++] = ParseValue(cval);
+                            }
+                            else
+                            {
+                                Logger.Log("error parsing id=" + row.Id);
+                            }
                         }
 
                         row.Coeffs = carray;
                         Rows.Add(row);
                     }
 
-                    if (idx%12345==0) Logger.Log(idx + " lines loaded");
-                    if (MaxRowsLoaded!=0 && idx > MaxRowsLoaded) break;
+                    if (idx % 12345 == 0) Logger.Log(idx + " lines loaded");
+                    if (MaxRowsLoaded != 0 && idx > MaxRowsLoaded) break;
                 }
 
                 Logger.Log((idx-1) + " lines loaded;");
@@ -247,6 +249,42 @@ namespace PtProject.DataLoader
                 Logger.Log(e);
                 throw e;
             }
+        }
+
+        private string[] GetStringBlocks(string nextline)
+        {
+            char splitter = ',';
+
+            string[] blocks;
+            if (splitter != ',')
+                blocks = nextline.ToLower().Replace(',', '.').Split(splitter);
+            else
+                blocks = nextline.ToLower().Split(splitter);
+            if (blocks != null)
+            {
+                for (int i = 0; i < blocks.Length; i++)
+                {
+                    if (blocks[i] == null) continue;
+                    blocks[i] = blocks[i].Trim('"');
+                }
+            }
+
+            return blocks;
+        }
+
+        private string GetStringId(string[] blocks)
+        {
+            var sb = new StringBuilder();
+            int nidx = 0;
+            foreach (var sidx in _idIdx.Keys)
+            {
+                if (nidx == 0)
+                    sb.Append(blocks[sidx]);
+                else
+                    sb.Append(";" + blocks[sidx]);
+                nidx++;
+            }
+            return sb.ToString();
         }
 
         private int GetDataLinesCount(string filename)
@@ -273,59 +311,6 @@ namespace PtProject.DataLoader
             }
 
             return result;
-        }
-
-        public void NormalizeDenseRank()
-        {
-            if (CntDict==null)
-                CntDict = new Dictionary<int, SortedDictionary<T, int>>();
-
-            foreach (var row in Rows)
-            {
-                for (int i=0;i<row.Coeffs.Length;i++)
-                {
-                    if (!CntDict.ContainsKey(i))
-                        CntDict.Add(i, new SortedDictionary<T, int>());
-                    if (!CntDict[i].ContainsKey(row.Coeffs[i]))
-                        CntDict[i].Add(row.Coeffs[i], 0);
-                    CntDict[i][row.Coeffs[i]]++;
-                }
-            }
-
-            if (IdxDict==null)
-                IdxDict = new Dictionary<int, Dictionary<T, int>>();
-
-            foreach (var idx in CntDict.Keys)
-            {
-                if (!IdxDict.ContainsKey(idx))
-                    IdxDict.Add(idx, new Dictionary<T, int>());
-                int i = 0;
-                foreach (var v in CntDict[idx].Keys)
-                {
-                    if (!IdxDict[idx].ContainsKey(v))
-                        IdxDict[idx].Add(v, i++);
-                }
-            }
-
-            foreach (var row in Rows)
-            {
-                for (int i = 0; i < row.Coeffs.Length; i++)
-                {
-                    T val = row.Coeffs[i];
-                    int cnt = (CntDict[i].Count - 1);
-                    double prob=0;
-                    if (cnt>0)
-                        prob = IdxDict[i][val] / (double)cnt;
-                    row.Coeffs[i] = (T)Convert.ChangeType(prob, typeof(T));
-                }
-            }
-        }
-
-        public void NormalizeDenseRank(DataLoader<T> loader)
-        {
-            CntDict = loader.CntDict;
-            IdxDict = loader.IdxDict;
-            NormalizeDenseRank();
         }
 
         private T ParseValue(string str)

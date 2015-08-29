@@ -35,6 +35,8 @@ namespace PtProject.Dependency
 
             // загружаем данные
             var loader = targetname!=null?(new DataLoader<FType>(targetname)) : new DataLoader<FType>();
+            loader.AddIdColumn("id");
+            loader.RemoveSkipColumn("id");
             if (targetname!=null) loader.RemoveSkipColumn(targetname);
             loader.Load(filename);
             var cols = loader.IdxByColumn.Keys.ToArray();
@@ -64,6 +66,8 @@ namespace PtProject.Dependency
                     {
                         var col1 = cols[i]; // первый признак
                         var col2 = cols[j]; // второй признак
+
+                        //if (col1 != loader.TargetName && col2!=loader.TargetName) continue;
 
                         if (counted.ContainsKey(col1) && counted[col1].ContainsKey(col2)) continue;
 
