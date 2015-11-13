@@ -18,5 +18,10 @@ namespace PtProject.Domain
         public List<RocPoint> RocPoints;
 
         public int OutflowLength;
+
+        public override string ToString()
+        {
+            return AUC.ToString("F03");
+        }
     }
 }

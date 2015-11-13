@@ -37,7 +37,7 @@ namespace PtProject.DataLoader
         public SortedDictionary<T, int> TargetStat = new SortedDictionary<T, int>();
         public Dictionary<T, int> ClassNumByValue = new Dictionary<T, int>();
         public Dictionary<int, T> ValueByClassNum = new Dictionary<int, T>();
-        public Dictionary<string, string> DropIds;
+        public Dictionary<string, string> DropIds = new Dictionary<string, string>();
 
         private Dictionary<int, int> _idIdx = new Dictionary<int, int>(); // id indexes (many)
 
@@ -47,7 +47,6 @@ namespace PtProject.DataLoader
         /// <param name="col"></param>
         public void AddIdColumn(string col)
         {
-            if (IdName == null) IdName = new Dictionary<string, int>();
             string ncol = col.ToLower();
 
             if (!IdName.ContainsKey(ncol)) IdName.Add(ncol.ToLower(),1);
@@ -83,16 +82,17 @@ namespace PtProject.DataLoader
                 _skippedColumns.Remove(ncol);
         }
 
-        public DataLoader(string target)
+        public DataLoader(string target) : this()
         {
             AddTargetColumn(target);
         }
 
         public DataLoader()
         {
+            IdName = new Dictionary<string, int>();
         }
 
-        public DataLoader(string target, string id)
+        public DataLoader(string target, string id) : this()
         {
             AddTargetColumn(target);
             AddIdColumn(id);
@@ -147,13 +147,10 @@ namespace PtProject.DataLoader
                         if (TargetName != null)
                             TargetIdx = IdxByColumn[TargetName]; // target column index
 
-                        if (IdName != null) // id column indexes
+                        foreach (var iname in IdName.Keys)
                         {
-                            foreach (var iname in IdName.Keys)
-                            {
-                                int sidx = IdxByColumn[iname];
-                                if (!_idIdx.ContainsKey(sidx)) _idIdx.Add(sidx, 1);
-                            }
+                            int sidx = IdxByColumn[iname];
+                            if (!_idIdx.ContainsKey(sidx)) _idIdx.Add(sidx, 1);
                         }
 
                         var toDel = (from t in _skippedColumns.Keys where !IdxByColumn.ContainsKey(t) select t).ToList();
@@ -176,13 +173,15 @@ namespace PtProject.DataLoader
                     if (rnd.NextDouble() >= LoadFactor) continue;
 
                     var row = new DsfDataRow<T>();
-                    if (TargetName != null)
-                        row.Target = ParseValue(blocks[TargetIdx]);
-                    if (IdName != null) // creating composite id
-                    {
-                        row.Id = GetStringId(blocks);
-                    }
 
+                    // target 
+                    if (TargetName != null) row.Target = ParseValue(blocks[TargetIdx]);
+
+                    // creating composite id
+                    row.Id = GetStringId(blocks);
+                    if (string.IsNullOrEmpty(row.Id)) row.Id = nrow.ToString();
+
+                    // drop columns
                     if (DropIds != null && DropIds.ContainsKey(row.Id)) continue;
 
                     // save stats for target value
