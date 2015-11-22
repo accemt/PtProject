@@ -26,6 +26,8 @@ namespace PtProject.Classifier
         private int _ntrees = 1;
         private int _nclasses = 2;
 
+        private Dictionary<int, alglib.decisionforest> _treesDict = new Dictionary<int, alglib.decisionforest>();
+
         public Dictionary<int, string> TrainColumns
         {
             get { return _trainLoader.ColumnByIdx; }
@@ -60,8 +62,17 @@ namespace PtProject.Classifier
         {
             foreach (var c in cols)
             {
-                _trainLoader.DropIds.Add(c, c);
+                AddDropColumn(c);
             }
+        }
+
+        /// <summary>
+        /// Drops column from learning set
+        /// </summary>
+        /// <param name="col">column for drop</param>
+        public void AddDropColumn(string col)
+        {
+            _trainLoader.DropIds.Add(col, col);
         }
 
         /// <summary>
@@ -102,7 +113,7 @@ namespace PtProject.Classifier
             _trainLoader.Load(_trainPath);
 
             // loading test file
-            foreach (var id in _testLoader.IdName.Keys) // the same id's
+            foreach (var id in _trainLoader.IdName.Keys) // the same id's
                 _testLoader.AddIdColumn(id);
             _testLoader.Load(_testPath);
 
@@ -139,6 +150,7 @@ namespace PtProject.Classifier
             var rlist = new RocItem[_resultDict.Count]; // массив для оценки результата
 
             var ret = new ClassifierResult();
+            _treesDict.Clear();
 
             for (int i = 0; i < _ntrees; i++)
             {
@@ -146,10 +158,9 @@ namespace PtProject.Classifier
                 var tree = CreateTree(_trainLoader, 1);
                 if (savetree)
                 {
-                    SerializeTree(tree, i); // сохраняем
+                    SerializeTree(tree, i); // сохраняем на диск
+                    _treesDict.Add(i, tree);
                 }
-
-                Logger.Log("d="+_rfcoeff+"; tree="+(i+1));
 
                 // получаем результат по одному дереву
                 var result = GetClassificationResult(tree);
@@ -187,10 +198,37 @@ namespace PtProject.Classifier
                 Array.Sort(rlist, (o1, o2) => (1 - o1.Prob).CompareTo(1 - o2.Prob));
                 var clsRes = ResultCalc.GetResult(rlist, 0.05);
 
+                Logger.Log("d=" + _rfcoeff + "; tree=" + (i + 1) + " created; AUC=" + clsRes.AUC.ToString("F04"));
+
                 ret.AddStepResult(clsRes,i);
             }
 
             return ret;
+        }
+
+        /// <summary>
+        /// Predict probability for one instance
+        /// </summary>
+        /// <param name="sarr">array of double params</param>
+        /// <returns></returns>
+        public double[] PredictProba(double[] sarr)
+        {
+            var y = new double[_nclasses];
+            int cnt = _treesDict.Keys.Count();
+
+            foreach (var id in _treesDict.Keys)
+            {
+                var tree = _treesDict[id];
+                var sy = new double[_nclasses];
+                alglib.dfprocess(tree, sarr, ref sy);
+                for (int i=0;i<sy.Length;i++)
+                    y[i] += sy[i];
+            }
+
+            for (int i = 0; i < y.Length; i++)
+                y[i] /= cnt;
+
+            return y;
         }
 
         private Dictionary<string, double> GetClassificationResult(alglib.decisionforest tree)
@@ -247,17 +285,21 @@ namespace PtProject.Classifier
             return df;
         }
 
-        private static void SerializeTree(alglib.decisionforest tree, int i)
+        private void SerializeTree(alglib.decisionforest tree, int i)
         {
-            var fs = new FileStream("tree_" + i + ".tree", FileMode.Create);
+            string treesDir = Environment.CurrentDirectory + "\\trees";
+            if (!Directory.Exists(treesDir))
+                Directory.CreateDirectory(treesDir);
+            var dinfo = new DirectoryInfo(treesDir);
+
+            var fs = new FileStream(dinfo.FullName + "\\" + "tree_" + string.Format("{0:0000.#}", i) + ".dmp", FileMode.Create, FileAccess.Write);
             string serstr;
             alglib.dfserialize(tree, out serstr);
 
-            // Construct a BinaryFormatter and use it to serialize the data to the stream.
-            BinaryFormatter formatter = new BinaryFormatter();
+            var formatter = new BinaryFormatter();
             try
             {
-                formatter.Serialize(fs, tree);
+                formatter.Serialize(fs, serstr);
             }
             catch (SerializationException e)
             {
@@ -267,6 +309,50 @@ namespace PtProject.Classifier
             {
                 fs.Close();
             }
+        }
+
+        private alglib.decisionforest DeserializeTree(string path)
+        {
+            var fs = new FileStream(path, FileMode.Open, FileAccess.Read);
+            var formatter = new BinaryFormatter();
+            alglib.decisionforest tree=null;
+
+            try
+            {
+                string serstr = (string)formatter.Deserialize(fs);
+                alglib.dfunserialize(serstr, out tree);
+            }
+            catch (SerializationException e)
+            {
+                Logger.Log(e);
+            }
+            finally
+            {
+                fs.Close();
+            }
+
+            return tree;
+        }
+
+        public void LoadTrees(string root)
+        {
+            string treesDir = Environment.CurrentDirectory + "\\" + root;
+            if (!Directory.Exists(treesDir))
+            {
+                Logger.Log("directory " + root + " doesn't exists");
+                return;
+            }
+            var dinfo = new DirectoryInfo(treesDir);
+            _treesDict.Clear();
+
+            int idx = 0;
+            foreach (var finfo in dinfo.GetFiles())
+            {
+                var tree = DeserializeTree(finfo.FullName);
+                _treesDict.Add(idx++, tree);
+                Logger.Log(finfo.Name + " loaded;");
+            }
+            Logger.Log("all trees loaded;");
         }
     }
 }

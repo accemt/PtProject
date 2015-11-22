@@ -14,55 +14,47 @@ namespace PtProject.Calibrator
     {
         public static void Main(string[] args)
         {
-            if (args.Length<3 || args.Length>4)
+            if (args.Length<3 || args.Length>6)
             {
-                Logger.Log("usage: program.exe train.csv test.csv target_name [dep_stat.csv]");
+                Logger.Log("usage: program.exe <train.csv> <test.csv> <target_name> [ids=, [dep_stat.csv=null [measure_field=Chi2Coeff]]]");
                 return;
             }
 
             string trainPath = args[0];
             string testPath = args[1];
             string target = args[2];
-            string depstatPath = args.Length >= 4 ? args[3] : null;
+            string ids = args.Length >= 4 ? args[3] : ",";
+            string depstatPath = args.Length >= 5 ? args[4] : null;
+            string measureField = args.Length >= 6 ? args[5] : "Chi2Coeff";
 
-            string id = "id";
+            Logger.Log("train = " + trainPath);
+            Logger.Log("test = " + testPath);
+            Logger.Log("target = " + target);
+            Logger.Log("ids = " + ids);
 
-            if (depstatPath == null) // тогда подбираем параметры d и  ntrees
+            if (depstatPath == null) // тогда подбираем параметры d и ntrees
             {
-                CreateRFStat(trainPath, testPath, id, target);
+                Logger.Log("ntrees-d mode");
+                CreateRFStat(trainPath, testPath, ids, target);
             }
-            else // подбираем параметры зависимости с целевой и попарной зависимости
+            else // подбираем параметры зависимости с целевой и попарной мерой
             {
-                CreateDepStat(trainPath, testPath, depstatPath, id, target);
+                Logger.Log("td-fd mode");
+                Logger.Log("depstat = " + depstatPath);
+                Logger.Log("measure = " + measureField);
+                CreateDepStat(trainPath, testPath, depstatPath, ids, target, measureField);
             }
         }
 
-        private static void CreateDepStat(string trainPath, string testPath, string depstatPath, string id, string target)
+        private static void CreateDepStat(string trainPath, string testPath, string depstatPath, string ids, string target, string measureField)
         {
-            FactorManager.Load(depstatPath, target);
+            FactorManager.Load(depstatPath, target, measureField);
 
             var fdList = new List<double>();
-            fdList.Add(1000);
-            fdList.Add(700);
-            fdList.Add(300);
-            fdList.Add(100);
-            fdList.Add(50);
-            fdList.Add(10);
-            fdList.Add(5);
-            fdList.Add(1);
-            fdList.Add(0.5);
-            fdList.Add(0);
+            fdList.Add(0); 
             fdList = fdList.OrderByDescending(c => c).ToList();
 
-            var tdList = new List<double>();
-            tdList.Add(0);
-            tdList.Add(0.5);
-            tdList.Add(1);
-            tdList.Add(1.5);
-            tdList.Add(3);
-            tdList.Add(7);
-            tdList.Add(10);
-            tdList.Add(15);
+            var tdList = new List<double>(FactorManager.GetTargetValues());
             tdList = tdList.OrderBy(c => c).ToList();
 
             using (var sw = new StreamWriter(new FileStream("depstat.csv", FileMode.Create, FileAccess.Write)))
@@ -84,13 +76,18 @@ namespace PtProject.Calibrator
                         if (!countedDict.ContainsKey(vstr))
                         {
                             var cls = new RFClassifier(trainPath, testPath, target);
-                            cls.AddIdColumn(id);
-                            cls.SetRFParams(300, 0.3, 2);
+                            var idsDict = ids.Split(',').ToDictionary(c => c);
+                            foreach (string sid in idsDict.Keys)
+                            {
+                                if (!string.IsNullOrWhiteSpace(sid))
+                                    cls.AddIdColumn(sid);
+                            }
+                            cls.SetRFParams(400, 0.07, 2);
                             var fdict = factors.ToDictionary(c => c);
 
                             foreach (string variable in FactorManager.FactorDict.Keys)
                             {
-                                if (variable == target || variable == id) continue;
+                                if (variable == target || idsDict.ContainsKey(variable)) continue;
                                 if (fdict.ContainsKey(variable))
                                     cls.AddDropColumns(new string[] { variable });
                             }
@@ -112,10 +109,14 @@ namespace PtProject.Calibrator
             }
         }
 
-        private static void CreateRFStat(string trainPath, string testPath, string id, string target)
+        private static void CreateRFStat(string trainPath, string testPath, string ids, string target)
         {
             var cls = new RFClassifier(trainPath, testPath, target);
-            cls.AddIdColumn(id);
+            foreach (string sid in ids.Split(','))
+            {
+                if (!string.IsNullOrWhiteSpace(sid))
+                    cls.AddIdColumn(sid);
+            }
             cls.LoadData();
 
             using (var sw = new StreamWriter(new FileStream("rfstat.csv", FileMode.Create, FileAccess.Write)))
@@ -123,7 +124,7 @@ namespace PtProject.Calibrator
                 sw.WriteLine("n;d;auc");
                 for (double d = 0.01; d <= 1; d += 0.1)
                 {
-                    cls.SetRFParams(500, d, 2);
+                    cls.SetRFParams(300, d, 2);
                     var result = cls.Build();
                     foreach (int n in result.ResDict.Keys)
                     {

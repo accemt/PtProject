@@ -6,6 +6,7 @@ using System.Text;
 using System.Linq;
 using PtProject.Domain;
 using PtProject.Domain.Util;
+using System.Configuration;
 
 namespace PtProject.DataLoader
 {
@@ -139,7 +140,7 @@ namespace PtProject.DataLoader
                         {
                             if (!IdxByColumn.ContainsKey(TargetName))
                             {
-                                Logger.Log("data haven't target column, exiting");
+                                Logger.Log("data don`t have a target (" + TargetName + ") column, exiting");
                                 break;
                             }
                         }
@@ -252,7 +253,10 @@ namespace PtProject.DataLoader
 
         private string[] GetStringBlocks(string nextline)
         {
-            char splitter = ',';
+            char splitter = ';';
+            var appSettings = ConfigurationManager.AppSettings;
+            if (appSettings["SplitSymbol"] != null)
+                splitter = appSettings["SplitSymbol"][0];
 
             string[] blocks;
             if (splitter != ',')
@@ -306,7 +310,7 @@ namespace PtProject.DataLoader
             }
             catch (Exception e)
             {
-
+                Logger.Log(e);
             }
 
             return result;

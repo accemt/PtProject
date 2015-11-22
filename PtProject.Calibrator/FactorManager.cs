@@ -17,19 +17,23 @@ namespace PtProject.Calibrator
         public static double TargDep = 1;
         public static double FactorDep = 1;
 
-        public static string TargetField = "is_closed";
+        public static string TargetField;
+        public static string MeasureField;
 
-        public static void Load(string path, string target)
+        private static Dictionary<double, int> _tdList = new Dictionary<double, int>();
+        private static Dictionary<double, int> _pdList = new Dictionary<double, int>();
+
+        public static void Load(string path, string target= "target", string measureFiled= "Chi2Coeff")
         {
             TargetField = target;
+            MeasureField = measureFiled;
             Items = FactorStatItem.ParseFromFile(path);
-
-            var tdList = new List<double>();
-            var pdList = new List<double>();
 
             FactorDict = new Dictionary<string, Dictionary<string, FactorStatItem>>();
             foreach (var item in Items)
             {
+                double measure = GetMeasureValue(item);
+
                 if (!FactorDict.ContainsKey(item.Factor1))
                     FactorDict.Add(item.Factor1, new Dictionary<string, FactorStatItem>());
 
@@ -43,22 +47,22 @@ namespace PtProject.Calibrator
                     FactorDict[item.Factor2].Add(item.Factor1, item);
 
                 if (item.Factor1 == TargetField || item.Factor2 == TargetField)
-                    tdList.Add(item.Chi2Coeff);
+                    if (!_tdList.ContainsKey(measure)) _tdList.Add(measure, 1); else _tdList[measure]++;
                 else
-                    pdList.Add(item.Chi2Coeff);
+                    if (!_pdList.ContainsKey(measure)) _pdList.Add(measure, 1); else _pdList[measure]++;
             }
 
             if (!FactorDict.ContainsKey(TargetField)) FactorDict.Add(TargetField, new Dictionary<string, FactorStatItem>());
             if (!FactorDict[TargetField].ContainsKey(TargetField)) FactorDict[TargetField].Add(TargetField, new FactorStatItem());
 
-            FactorDict[TargetField][TargetField].Chi2Coeff = 0;
+            //FactorDict[TargetField][TargetField].Chi2Coeff = 0;
 
             SetVisibleFactors(FactorDict.Keys.ToArray());
         }
 
         private static void SetVisibleFactors(string[] factors)
         {
-            VisibleFactors = factors.OrderByDescending(n => FactorDict[TargetField].ContainsKey(n) ? FactorDict[TargetField][n].Chi2Coeff : -1).ToArray();
+            VisibleFactors = factors.OrderByDescending(n => FactorDict[TargetField].ContainsKey(n) ? GetMeasureValue(FactorDict[TargetField][n]) : -1).ToArray();
         }
 
         public static void SelectFactors()
@@ -68,7 +72,7 @@ namespace PtProject.Calibrator
             {
                 if (ExcludeFactros.ContainsKey(f)) continue;
 
-                if (FactorDict[TargetField][f].Chi2Coeff > TargDep)
+                if (GetMeasureValue(FactorDict[TargetField][f]) >= TargDep)
                     flist.Add(f);
             }
 
@@ -89,14 +93,14 @@ namespace PtProject.Calibrator
                     if (droplist.ContainsKey(f1)) continue;
                     if (droplist.ContainsKey(f2)) continue;
 
-                    double d1 = FactorDict[TargetField][f1].Chi2Coeff;
-                    double d2 = FactorDict[TargetField][f2].Chi2Coeff;
+                    double d1 = GetMeasureValue(FactorDict[TargetField][f1]);
+                    double d2 = GetMeasureValue(FactorDict[TargetField][f2]);
 
-                    double fdep = double.MaxValue;
+                    double fdep = double.MinValue;
                     if (FactorDict.ContainsKey(f1) && FactorDict[f1].ContainsKey(f2))
-                        fdep = FactorDict[f1][f2].Chi2Coeff;
+                        fdep = GetMeasureValue(FactorDict[f1][f2]);
 
-                    if (fdep > FactorDep)
+                    if (fdep >= FactorDep)
                     {
                         if (d1 > d2)
                         {
@@ -122,16 +126,26 @@ namespace PtProject.Calibrator
 
         public static void SetExcludeFactors(string text)
         {
-            FactorManager.ExcludeFactros.Clear();
+            ExcludeFactros.Clear();
             if (string.IsNullOrWhiteSpace(text)) return;
             foreach (string line in text.Split('\n'))
             {
                 if (line == null) continue;
                 string nline = line.ToLower().Trim();
                 if (string.IsNullOrWhiteSpace(nline)) continue;
-                if (!FactorManager.ExcludeFactros.ContainsKey(nline))
-                    FactorManager.ExcludeFactros.Add(nline, 1);
+                if (!ExcludeFactros.ContainsKey(nline))
+                    ExcludeFactros.Add(nline, 1);
             }
+        }
+
+        private static double GetMeasureValue(object obj)
+        {
+            return Convert.ToDouble(obj.GetType().GetField(MeasureField).GetValue(obj));
+        }
+
+        public static double[] GetTargetValues()
+        {
+            return _tdList.Keys.ToArray();
         }
     }
 }
