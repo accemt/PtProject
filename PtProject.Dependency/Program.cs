@@ -17,15 +17,35 @@ namespace PtProject.Dependency
     {
         static void Main(string[] args)
         {
-            if (args.Length != 1 && args.Length != 2 && args.Length != 3)
+            if (args.Length <= 1 || args.Length >= 4)
             {
-                Logger.Log("usage: program.exe <datafile.csv> [target_name [factor=1.0]]");
+                Logger.Log("usage: program.exe <datafile.csv> <full/short> [target_name [factor=1.0]]");
                 return;
             }
 
             string filename = args[0];
-            string targetname = args.Length > 1 ? args[1] : null;
-            string factorstr = args.Length > 2 ? args[2] : "1";
+            string stype = args[1].ToLower();
+            string targetname = args.Length >= 3 ? args[2] : null;
+
+            // множетель преобразования для категорирования признаков
+            double factor = double.Parse(args.Length >= 4 ? args[3].Replace(',', '.') : "1", CultureInfo.InvariantCulture);
+
+            if (stype!="full" && stype!="short")
+            {
+                Logger.Log("type can be only full or short");
+                return;
+            }
+
+            if (stype=="short" && targetname==null)
+            {
+                Logger.Log("you must specify target_name in sort mode");
+                return;
+            }
+
+            Logger.Log("datafile = " + filename);
+            Logger.Log("type = " + stype);
+            Logger.Log("target_name = " + targetname);
+            Logger.Log("factor = " + factor.ToString("F04"));
 
             if (!File.Exists(filename))
             {
@@ -35,14 +55,9 @@ namespace PtProject.Dependency
 
             // загружаем данные
             var loader = targetname!=null?(new DataLoader<FType>(targetname)) : new DataLoader<FType>();
-            //loader.AddIdColumn("id");
-            //loader.RemoveSkipColumn("id");
             if (targetname!=null) loader.RemoveSkipColumn(targetname);
             loader.Load(filename);
             var cols = loader.IdxByColumn.Keys.ToArray();
-
-            // множетель преобразования для категорирования признаков
-            double factor = double.Parse(factorstr.Replace(',', '.'), CultureInfo.InvariantCulture);
 
             // выходной файл
             string statname = filename + "_stats.csv";
@@ -67,8 +82,11 @@ namespace PtProject.Dependency
                         var col1 = cols[i]; // первый признак
                         var col2 = cols[j]; // второй признак
 
-                        if (targetname!=null)
-                            if (col1 != loader.TargetName && col2!=loader.TargetName) continue;
+                        if (stype == "short")
+                        {
+                            if (targetname != null)
+                                if (col1 != loader.TargetName && col2 != loader.TargetName) continue;
+                        }
 
                         if (counted.ContainsKey(col1) && counted[col1].ContainsKey(col2)) continue;
 
@@ -263,21 +281,42 @@ namespace PtProject.Dependency
                         double chi2max = Util.InvChi2CDF(cnt2, 0.95);
                         double chifactor = chi2 / chi2max;
 
+
+                        // information value
                         double iv = 0;
-                        if (col1 == loader.TargetName)
+                        if (col1 == loader.TargetName || col2==loader.TargetName)
                         {
-                            foreach (long v2 in f2stat.ModifiedStat.Keys)
+                            if (col1 == loader.TargetName)
                             {
-                                double tprob = f2stat.ModifiedStat[v2].Targets / (double)allTargets;
-                                double ntprob = (f2stat.ModifiedStat[v2].Count - f2stat.ModifiedStat[v2].Targets) / (double)(rowscount - allTargets);
-                                double woe = Math.Log(tprob / ntprob) * 100;
-                                double ivp = (tprob * 100 - ntprob * 100) * Math.Log(tprob / ntprob);
-                                if (ntprob < 0.00000000000001 || tprob < 0.00000000000001)
+                                foreach (long v2 in f2stat.ModifiedStat.Keys)
                                 {
-                                    woe = 0;
-                                    ivp = 0;
+                                    double tprob = f2stat.ModifiedStat[v2].Targets / (double)allTargets;
+                                    double ntprob = (f2stat.ModifiedStat[v2].Count - f2stat.ModifiedStat[v2].Targets) / (double)(rowscount - allTargets);
+                                    double woe = Math.Log(tprob / ntprob) * 100;
+                                    double ivp = (tprob * 100 - ntprob * 100) * Math.Log(tprob / ntprob);
+                                    if (ntprob < 0.00000000000001 || tprob < 0.00000000000001)
+                                    {
+                                        woe = 0;
+                                        ivp = 0;
+                                    }
+                                    iv += ivp;
                                 }
-                                iv += ivp;
+                            }
+                            else
+                            {
+                                foreach (long v1 in f1stat.ModifiedStat.Keys)
+                                {
+                                    double tprob = f1stat.ModifiedStat[v1].Targets / (double)allTargets;
+                                    double ntprob = (f1stat.ModifiedStat[v1].Count - f1stat.ModifiedStat[v1].Targets) / (double)(rowscount - allTargets);
+                                    double woe = Math.Log(tprob / ntprob) * 100;
+                                    double ivp = (tprob * 100 - ntprob * 100) * Math.Log(tprob / ntprob);
+                                    if (ntprob < 0.00000000000001 || tprob < 0.00000000000001)
+                                    {
+                                        woe = 0;
+                                        ivp = 0;
+                                    }
+                                    iv += ivp;
+                                }
                             }
                         }
 

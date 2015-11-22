@@ -18,6 +18,7 @@ namespace PtProject.Calibrator.Domain
         public double Chi2;
         public double Chi2Coeff;
         public double CorrAbs;
+        public double InfValue;
 
         public override string ToString()
         {
@@ -63,6 +64,7 @@ namespace PtProject.Calibrator.Domain
                 item.Chi2 = GetDoubleValue(blocks, "Chi2", idxByName);
                 item.Chi2Coeff = GetDoubleValue(blocks, "Chi2Coeff", idxByName);
                 item.CorrAbs = GetDoubleValue(blocks, "CorrAbs", idxByName);
+                item.InfValue = GetDoubleValue(blocks, "InfValue", idxByName);
 
                 results.Add(item);
             }
