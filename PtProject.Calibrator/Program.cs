@@ -66,44 +66,51 @@ namespace PtProject.Calibrator
                 {
                     foreach (double fd in fdList)
                     {
-                        FactorManager.TargDep = td;
-                        FactorManager.FactorDep = fd;
-                        FactorManager.SelectFactors();
-                        var factors = FactorManager.VisibleFactors;
-                        Array.Sort(factors);
-                        string vstr = string.Join("@", factors);
-
-                        if (!countedDict.ContainsKey(vstr))
+                        try
                         {
-                            var cls = new RFClassifier(trainPath, testPath, target);
-                            var idsDict = ids.Split(',').ToDictionary(c => c);
-                            foreach (string sid in idsDict.Keys)
-                            {
-                                if (!string.IsNullOrWhiteSpace(sid))
-                                    cls.AddIdColumn(sid);
-                            }
-                            cls.SetRFParams(400, 0.07, 2);
-                            var fdict = factors.ToDictionary(c => c);
+                            FactorManager.TargDep = td;
+                            FactorManager.FactorDep = fd;
+                            FactorManager.SelectFactors();
+                            var factors = FactorManager.VisibleFactors;
+                            Array.Sort(factors);
+                            string vstr = string.Join("@", factors);
 
-                            foreach (string variable in FactorManager.FactorDict.Keys)
+                            if (!countedDict.ContainsKey(vstr))
                             {
-                                if (variable == target || idsDict.ContainsKey(variable)) continue;
-                                if (fdict.ContainsKey(variable))
-                                    cls.AddDropColumns(new string[] { variable });
+                                var cls = new RFClassifier(trainPath, testPath, target);
+                                var idsDict = ids.Split(',').ToDictionary(c => c);
+                                foreach (string sid in idsDict.Keys)
+                                {
+                                    if (!string.IsNullOrWhiteSpace(sid))
+                                        cls.AddIdColumn(sid);
+                                }
+                                cls.SetRFParams(400, 0.07, 2);
+                                var fdict = factors.ToDictionary(c => c);
+
+                                foreach (string variable in FactorManager.FactorDict.Keys)
+                                {
+                                    if (variable == target || idsDict.ContainsKey(variable)) continue;
+                                    if (!fdict.ContainsKey(variable))
+                                        cls.AddDropColumns(new string[] { variable });
+                                }
+
+                                cls.LoadData();
+                                var result = cls.Build();
+                                countedDict.Add(vstr, result);
+                            }
+                            else
+                            {
+                                Logger.Log("skipping...");
                             }
 
-                            cls.LoadData();
-                            var result = cls.Build();
-                            countedDict.Add(vstr, result);
+                            sw.WriteLine(FactorManager.TargDep.ToString("F02") + ";" + FactorManager.FactorDep.ToString("F02") + ";" + factors.Length + ";" + countedDict[vstr].LastResult.AUC + ";" + countedDict[vstr].BestResult.AUC + ";" + vstr);
+                            sw.Flush();
+                            Logger.Log("td=" + td.ToString("F02") + "; fd=" + fd.ToString("F02") + "; cnt=" + factors.Length + ";" + countedDict[vstr].LastResult.AUC);
                         }
-                        else
+                        catch (Exception e)
                         {
-                            Logger.Log("skipping...");
+                            Logger.Log(e);
                         }
-
-                        sw.WriteLine(FactorManager.TargDep.ToString("F02") + ";" + FactorManager.FactorDep.ToString("F02") + ";" + factors.Length + ";" + countedDict[vstr].LastResult.AUC + ";" + countedDict[vstr].BestResult.AUC + ";" + vstr);
-                        sw.Flush();
-                        Logger.Log("td="+ td.ToString("F02") + "; fd="+ fd.ToString("F02")+"; cnt="+factors.Length + ";" + countedDict[vstr].LastResult.AUC);
                     }
                 }
             }

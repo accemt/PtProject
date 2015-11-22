@@ -19,7 +19,7 @@ namespace PtProject.DataLoader
         public string TargetName { get; protected set; }
         public Dictionary<string, int> IdName { get; protected set; }
 
-        protected readonly Dictionary<string, int> _skippedColumns = new Dictionary<string, int>();
+        public readonly Dictionary<string, int> SkippedColumns = new Dictionary<string, int>();
 
         public abstract List<DsfDataRow<object>> GetRows();
         public abstract Type GetItemType();

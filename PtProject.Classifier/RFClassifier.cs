@@ -72,7 +72,7 @@ namespace PtProject.Classifier
         /// <param name="col">column for drop</param>
         public void AddDropColumn(string col)
         {
-            _trainLoader.DropIds.Add(col, col);
+            _trainLoader.AddSkipColumn(col);
         }
 
         /// <summary>
@@ -115,6 +115,11 @@ namespace PtProject.Classifier
             // loading test file
             foreach (var id in _trainLoader.IdName.Keys) // the same id's
                 _testLoader.AddIdColumn(id);
+
+            foreach (var col in _trainLoader.SkippedColumns.Keys) // the same drio columns
+                _testLoader.AddSkipColumn(col);
+
+            // loading
             _testLoader.Load(_testPath);
 
             _testDataDict = new Dictionary<string, List<double[]>>(); // тестовые данные: id -> список строк на данный id
@@ -198,7 +203,7 @@ namespace PtProject.Classifier
                 Array.Sort(rlist, (o1, o2) => (1 - o1.Prob).CompareTo(1 - o2.Prob));
                 var clsRes = ResultCalc.GetResult(rlist, 0.05);
 
-                Logger.Log("d=" + _rfcoeff + "; tree=" + (i + 1) + " created; AUC=" + clsRes.AUC.ToString("F04"));
+                Logger.Log("n=" + _testLoader.Rows[0].Coeffs.Count()+ " d=" + _rfcoeff + " tree=" + (i + 1) + " ok; AUC=" + clsRes.AUC.ToString("F04"));
 
                 ret.AddStepResult(clsRes,i);
             }

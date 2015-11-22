@@ -38,7 +38,7 @@ namespace PtProject.DataLoader
         public SortedDictionary<T, int> TargetStat = new SortedDictionary<T, int>();
         public Dictionary<T, int> ClassNumByValue = new Dictionary<T, int>();
         public Dictionary<int, T> ValueByClassNum = new Dictionary<int, T>();
-        public Dictionary<string, string> DropIds = new Dictionary<string, string>();
+        //public Dictionary<string, string> DropIds = new Dictionary<string, string>();
 
         private Dictionary<int, int> _idIdx = new Dictionary<int, int>(); // id indexes (many)
 
@@ -70,8 +70,8 @@ namespace PtProject.DataLoader
             string ncol = col.ToLower();
 
             if (string.IsNullOrWhiteSpace(ncol)) return;
-            if (!_skippedColumns.ContainsKey(ncol))
-                _skippedColumns.Add(ncol,1);
+            if (!SkippedColumns.ContainsKey(ncol))
+                SkippedColumns.Add(ncol,1);
         }
 
         public void RemoveSkipColumn(string col)
@@ -79,8 +79,8 @@ namespace PtProject.DataLoader
             string ncol = col.ToLower();
 
             if (string.IsNullOrWhiteSpace(ncol)) return;
-            if (_skippedColumns.ContainsKey(ncol))
-                _skippedColumns.Remove(ncol);
+            if (SkippedColumns.ContainsKey(ncol))
+                SkippedColumns.Remove(ncol);
         }
 
         public DataLoader(string target) : this()
@@ -154,10 +154,10 @@ namespace PtProject.DataLoader
                             if (!_idIdx.ContainsKey(sidx)) _idIdx.Add(sidx, 1);
                         }
 
-                        var toDel = (from t in _skippedColumns.Keys where !IdxByColumn.ContainsKey(t) select t).ToList();
-                        toDel.ForEach(c => _skippedColumns.Remove(c));
+                        var toDel = (from t in SkippedColumns.Keys where !IdxByColumn.ContainsKey(t) select t).ToList();
+                        toDel.ForEach(c => SkippedColumns.Remove(c));
 
-                        NVars = ColumnByIdx.Count - _skippedColumns.Count;
+                        NVars = ColumnByIdx.Count - SkippedColumns.Count;
 
                         continue;
                     }
@@ -183,7 +183,7 @@ namespace PtProject.DataLoader
                     if (string.IsNullOrEmpty(row.Id)) row.Id = nrow.ToString();
 
                     // drop columns
-                    if (DropIds != null && DropIds.ContainsKey(row.Id)) continue;
+                    //if (DropIds != null && DropIds.ContainsKey(row.Id)) continue;
 
                     // save stats for target value
                     if (!TargetStat.ContainsKey(row.Target))
@@ -207,7 +207,7 @@ namespace PtProject.DataLoader
                         {
                             string cval = blocks[i];
                             string colname = ColumnByIdx[i];
-                            if (_skippedColumns.ContainsKey(colname))
+                            if (SkippedColumns.ContainsKey(colname))
                                 continue;
 
                             LearnRows[nrow - 1, k++] = ParseValue(cval);
@@ -224,7 +224,7 @@ namespace PtProject.DataLoader
                             if (ColumnByIdx.ContainsKey(i))
                             {
                                 string colname = ColumnByIdx[i];
-                                if (_skippedColumns.ContainsKey(colname))
+                                if (SkippedColumns.ContainsKey(colname))
                                     continue;
                                 carray[k++] = ParseValue(cval);
                             }
