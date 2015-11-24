@@ -9,7 +9,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using FType = System.Double;
-
+ 
 namespace PtProject.Modifier
 {
     class Program
@@ -17,7 +17,7 @@ namespace PtProject.Modifier
         static DataLoader<FType> _loader = new DataLoader<FType>();
         static StreamWriter _sw;
         static DataModifier _modifier;
-        static int _idx;
+        static int _idx; //
 
         static void Main(string[] args)
         {
