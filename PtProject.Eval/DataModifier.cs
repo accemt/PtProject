@@ -1,12 +1,11 @@
-﻿using PtProject.Eval;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
-namespace PtProject.Modifier
+namespace PtProject.Eval
 {
     public class DataModifier
     {

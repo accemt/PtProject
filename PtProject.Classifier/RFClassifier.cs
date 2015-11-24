@@ -1,4 +1,4 @@
-﻿using PtProject.DataLoader;
+﻿using PtProject.Loader;
 using PtProject.Domain.Util;
 using System;
 using System.Collections;
@@ -10,12 +10,14 @@ using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
 using System.Threading.Tasks;
 
+using FType = System.Double;
+
 namespace PtProject.Classifier
 {
     public class RFClassifier
     {
-        private DataLoader<double> _trainLoader;
-        private DataLoader<double> _testLoader;
+        private DataLoader<FType> _trainLoader;
+        private DataLoader<FType> _testLoader;
         private Dictionary<string, List<double[]>> _testDataDict;
         private Dictionary<string, int> _resultDict;
 
@@ -50,8 +52,8 @@ namespace PtProject.Classifier
             _testPath = testPath;
             _target = target;
 
-            _trainLoader = new DataLoader<double>(_target);
-            _testLoader = new DataLoader<double>(_target);
+            _trainLoader = new DataLoader<FType>(_target);
+            _testLoader = new DataLoader<FType>(_target);
         }
 
         /// <summary>
@@ -92,7 +94,7 @@ namespace PtProject.Classifier
         }
 
         /// <summary>
-        /// Reads data from learning files and build classfier
+        /// Reads data from train and test files
         /// </summary>
         public void LoadData()
         {
@@ -146,7 +148,7 @@ namespace PtProject.Classifier
 
 
         /// <summary>
-        /// Reads data from learning files and build classfier
+        /// build and test classifier
         /// </summary>
         public ClassifierResult Build(bool savetree=false)
         {
@@ -274,7 +276,7 @@ namespace PtProject.Classifier
             return probDict;
         }
 
-        private alglib.decisionforest CreateTree(DataLoader<double> loader, int cnt)
+        private alglib.decisionforest CreateTree(DataLoader<FType> loader, int cnt)
         {
             alglib.decisionforest df;
 

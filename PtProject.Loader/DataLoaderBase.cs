@@ -2,7 +2,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace PtProject.DataLoader
+namespace PtProject.Loader
 {
     public abstract class DataLoaderBase
     {
@@ -21,9 +21,11 @@ namespace PtProject.DataLoader
 
         public readonly Dictionary<string, int> SkippedColumns = new Dictionary<string, int>();
 
-        public abstract List<DsfDataRow<object>> GetRows();
+        public abstract List<DataRow<object>> GetRows();
         public abstract Type GetItemType();
 
         public static Dictionary<string, int> StringValues = new Dictionary<string, int>();
+
+        public char SplitSymbol;
     }
 }

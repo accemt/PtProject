@@ -59,7 +59,7 @@ namespace PtProject.Calibrator
 
             using (var sw = new StreamWriter(new FileStream("depstat.csv", FileMode.Create, FileAccess.Write)))
             {
-                sw.WriteLine("td;fd;cnt;last_auc;best_auc;vars");
+                sw.WriteLine("td;fd;cnt;last_auc;best_auc;vars;measure");
                 var countedDict = new Dictionary<string, ClassifierResult>();
 
                 foreach (double td in tdList)
@@ -84,7 +84,7 @@ namespace PtProject.Calibrator
                                     if (!string.IsNullOrWhiteSpace(sid))
                                         cls.AddIdColumn(sid);
                                 }
-                                cls.SetRFParams(400, 0.07, 2);
+                                cls.SetRFParams(500, 0.15, 2);
                                 var fdict = factors.ToDictionary(c => c);
 
                                 foreach (string variable in FactorManager.FactorDict.Keys)
@@ -103,7 +103,7 @@ namespace PtProject.Calibrator
                                 Logger.Log("skipping...");
                             }
 
-                            sw.WriteLine(FactorManager.TargDep.ToString("F02") + ";" + FactorManager.FactorDep.ToString("F02") + ";" + factors.Length + ";" + countedDict[vstr].LastResult.AUC + ";" + countedDict[vstr].BestResult.AUC + ";" + vstr);
+                            sw.WriteLine(FactorManager.TargDep.ToString("F02") + ";" + FactorManager.FactorDep.ToString("F02") + ";" + factors.Length + ";" + countedDict[vstr].LastResult.AUC + ";" + countedDict[vstr].BestResult.AUC + ";" + vstr + ";" + measureField);
                             sw.Flush();
                             Logger.Log("td=" + td.ToString("F02") + "; fd=" + fd.ToString("F02") + "; cnt=" + factors.Length + ";" + countedDict[vstr].LastResult.AUC);
                         }

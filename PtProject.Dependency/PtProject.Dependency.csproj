@@ -75,9 +75,9 @@
     <None Include="data.csv" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\PtProject.DataLoader\PtProject.DataLoader.csproj">
+    <ProjectReference Include="..\PtProject.Loader\PtProject.Loader.csproj">
       <Project>{987c0363-6879-4ff3-9606-9aef32e5d648}</Project>
-      <Name>PtProject.DataLoader</Name>
+      <Name>PtProject.Loader</Name>
     </ProjectReference>
     <ProjectReference Include="..\PtProject.Domain\PtProject.Domain.csproj">
       <Project>{6f1c3e27-f8da-46e7-bb92-07dfd156117d}</Project>

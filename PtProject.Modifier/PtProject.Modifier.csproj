@@ -43,8 +43,6 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ExprDesc.cs" />
-    <Compile Include="DataModifier.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
@@ -59,6 +57,10 @@
     <ProjectReference Include="..\PtProject.Eval\PtProject.Eval.csproj">
       <Project>{8d1c9a66-7002-4767-90b2-cb9fe1cce93a}</Project>
       <Name>PtProject.Eval</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\PtProject.Loader\PtProject.Loader.csproj">
+      <Project>{987c0363-6879-4ff3-9606-9aef32e5d648}</Project>
+      <Name>PtProject.Loader</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

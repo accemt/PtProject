@@ -7,8 +7,8 @@
     <ProjectGuid>{987C0363-6879-4FF3-9606-9AEF32E5D648}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>PtProject.DataLoader</RootNamespace>
-    <AssemblyName>PtProject.DataLoader</AssemblyName>
+    <RootNamespace>PtProjectLoader</RootNamespace>
+    <AssemblyName>PtProject.Loader</AssemblyName>
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>

@@ -8,22 +8,24 @@ using PtProject.Domain;
 using PtProject.Domain.Util;
 using System.Configuration;
 
-namespace PtProject.DataLoader
+namespace PtProject.Loader
 {
     public class DataLoader<T> : DataLoaderBase
     {
         // By default loading strategy data will be load in that list
-        public List<DsfDataRow<T>> Rows = new List<DsfDataRow<T>>();
+        public List<DataRow<T>> Rows = new List<DataRow<T>>();
 
         // For machine-learning data will be load in that array
         public T[,] LearnRows;
 
-        public override List<DsfDataRow<object>> GetRows()
+        public Func<DataRow<T>, object> ProceedRowFunc;
+
+        public override List<DataRow<object>> GetRows()
         {
-            var list = new List<DsfDataRow<object>>();
+            var list = new List<DataRow<object>>();
             foreach (var r in Rows)
             {
-                list.Add((DsfDataRow<object>)r);
+                list.Add((DataRow<object>)r);
             }
             return list;
         }
@@ -91,6 +93,11 @@ namespace PtProject.DataLoader
         public DataLoader()
         {
             IdName = new Dictionary<string, int>();
+
+            SplitSymbol = ';';
+            var appSettings = ConfigurationManager.AppSettings;
+            if (appSettings["SplitSymbol"] != null)
+                SplitSymbol = appSettings["SplitSymbol"][0];
         }
 
         public DataLoader(string target, string id) : this()
@@ -150,6 +157,10 @@ namespace PtProject.DataLoader
 
                         foreach (var iname in IdName.Keys)
                         {
+                            if (!IdxByColumn.ContainsKey(iname))
+                            {
+                                throw new InvalidDataException("id column '" + iname + "' not found");
+                            }
                             int sidx = IdxByColumn[iname];
                             if (!_idIdx.ContainsKey(sidx)) _idIdx.Add(sidx, 1);
                         }
@@ -173,7 +184,7 @@ namespace PtProject.DataLoader
 
                     if (rnd.NextDouble() >= LoadFactor) continue;
 
-                    var row = new DsfDataRow<T>();
+                    var row = new DataRow<T>();
 
                     // target 
                     if (TargetName != null) row.Target = ParseValue(blocks[TargetIdx]);
@@ -235,7 +246,10 @@ namespace PtProject.DataLoader
                         }
 
                         row.Coeffs = carray;
-                        Rows.Add(row);
+                        if (ProceedRowFunc == null)
+                            Rows.Add(row);
+                        else
+                            ProceedRowFunc(row);
                     }
 
                     if (idx % 12345 == 0) Logger.Log(idx + " lines loaded");
@@ -253,16 +267,11 @@ namespace PtProject.DataLoader
 
         private string[] GetStringBlocks(string nextline)
         {
-            char splitter = ';';
-            var appSettings = ConfigurationManager.AppSettings;
-            if (appSettings["SplitSymbol"] != null)
-                splitter = appSettings["SplitSymbol"][0];
-
             string[] blocks;
-            if (splitter != ',')
-                blocks = nextline.ToLower().Replace(',', '.').Split(splitter);
+            if (SplitSymbol != ',')
+                blocks = nextline.ToLower().Replace(',', '.').Split(SplitSymbol);
             else
-                blocks = nextline.ToLower().Split(splitter);
+                blocks = nextline.ToLower().Split(SplitSymbol);
             if (blocks != null)
             {
                 for (int i = 0; i < blocks.Length; i++)

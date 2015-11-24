@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using PtProject.Domain;
 using PtProject.Domain.Util;
-using PtProject.DataLoader;
+using PtProject.Loader;
 using System.Globalization;
 
 using FType = System.Double;
@@ -17,7 +17,7 @@ namespace PtProject.Dependency
     {
         static void Main(string[] args)
         {
-            if (args.Length <= 1 || args.Length >= 4)
+            if (args.Length <= 1 || args.Length >= 5)
             {
                 Logger.Log("usage: program.exe <datafile.csv> <full/short> [target_name [factor=1.0]]");
                 return;

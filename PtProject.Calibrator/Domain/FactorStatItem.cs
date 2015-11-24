@@ -55,16 +55,16 @@ namespace PtProject.Calibrator.Domain
                 }
 
                 var item = new FactorStatItem();
-                item.Factor1 = GetStringValue(blocks, "Factor1", idxByName);
-                item.Factor2 = GetStringValue(blocks, "Factor2", idxByName);
+                item.Factor1 = GetStringValue(blocks, "factor1", idxByName);
+                item.Factor2 = GetStringValue(blocks, "factor2", idxByName);
 
-                item.S1 = GetDoubleValue(blocks, "S1", idxByName);
-                item.S2 = GetDoubleValue(blocks, "S2", idxByName);
-                item.S3 = GetDoubleValue(blocks, "S3", idxByName);
-                item.Chi2 = GetDoubleValue(blocks, "Chi2", idxByName);
-                item.Chi2Coeff = GetDoubleValue(blocks, "Chi2Coeff", idxByName);
-                item.CorrAbs = GetDoubleValue(blocks, "CorrAbs", idxByName);
-                item.InfValue = GetDoubleValue(blocks, "InfValue", idxByName);
+                item.S1 = GetDoubleValue(blocks, "s1", idxByName);
+                item.S2 = GetDoubleValue(blocks, "s2", idxByName);
+                item.S3 = GetDoubleValue(blocks, "s3", idxByName);
+                item.Chi2 = GetDoubleValue(blocks, "chi2", idxByName);
+                item.Chi2Coeff = GetDoubleValue(blocks, "chi2coeff", idxByName);
+                item.CorrAbs = GetDoubleValue(blocks, "corrabs", idxByName);
+                item.InfValue = GetDoubleValue(blocks, "inf_val", idxByName);
 
                 results.Add(item);
             }

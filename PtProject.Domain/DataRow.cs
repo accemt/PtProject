@@ -6,15 +6,15 @@ using System.Threading.Tasks;
 
 namespace PtProject.Domain
 {
-    public class DsfDataRow<T>
+    public class DataRow<T>
     {
         public string Id;
         public T Target;
         public T[] Coeffs;
 
-        public static explicit operator DsfDataRow<object>(DsfDataRow<T> row)
+        public static explicit operator DataRow<object>(DataRow<T> row)
         {
-            var nrow = new DsfDataRow<object>();
+            var nrow = new DataRow<object>();
             nrow.Id = row.Id;
             nrow.Target = row.Target;
             nrow.Coeffs = row.Coeffs.Cast<object>().ToArray();

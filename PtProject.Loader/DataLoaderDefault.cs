@@ -1,4 +1,4 @@
-﻿namespace PtProject.DataLoader
+﻿namespace PtProject.Loader
 {
     public class DataLoader : DataLoader<float>
     {

@@ -12,7 +12,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "libs", "libs", "{0D48DA2D-1
 		libs\MathNet.Numerics.dll = libs\MathNet.Numerics.dll
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PtProject.DataLoader", "PtProject.DataLoader\PtProject.DataLoader.csproj", "{987C0363-6879-4FF3-9606-9AEF32E5D648}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PtProject.Loader", "PtProject.Loader\PtProject.Loader.csproj", "{987C0363-6879-4FF3-9606-9AEF32E5D648}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PtProject.Domain", "PtProject.Domain\PtProject.Domain.csproj", "{6F1C3E27-F8DA-46E7-BB92-07DFD156117D}"
 EndProject
