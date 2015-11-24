@@ -78,18 +78,13 @@ namespace PtProject.Calibrator
                             if (!countedDict.ContainsKey(vstr))
                             {
                                 var cls = new RFClassifier(trainPath, testPath, target);
-                                var idsDict = ids.Split(',').ToDictionary(c => c);
-                                foreach (string sid in idsDict.Keys)
-                                {
-                                    if (!string.IsNullOrWhiteSpace(sid))
-                                        cls.AddIdColumn(sid);
-                                }
-                                cls.SetRFParams(500, 0.15, 2);
+                                cls.AddIdsString(ids);
+                                cls.SetRFParams(300, 0.1, 2);
                                 var fdict = factors.ToDictionary(c => c);
 
                                 foreach (string variable in FactorManager.FactorDict.Keys)
                                 {
-                                    if (variable == target || idsDict.ContainsKey(variable)) continue;
+                                    if (variable == target || cls.IdsDict.ContainsKey(variable)) continue;
                                     if (!fdict.ContainsKey(variable))
                                         cls.AddDropColumns(new string[] { variable });
                                 }
@@ -119,11 +114,7 @@ namespace PtProject.Calibrator
         private static void CreateRFStat(string trainPath, string testPath, string ids, string target)
         {
             var cls = new RFClassifier(trainPath, testPath, target);
-            foreach (string sid in ids.Split(','))
-            {
-                if (!string.IsNullOrWhiteSpace(sid))
-                    cls.AddIdColumn(sid);
-            }
+            cls.AddIdsString(ids);
             cls.LoadData();
 
             using (var sw = new StreamWriter(new FileStream("rfstat.csv", FileMode.Create, FileAccess.Write)))

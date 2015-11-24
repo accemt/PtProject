@@ -68,7 +68,7 @@ namespace PtProject.Modifier
             }
 
             // get modified values
-            var vals = _modifier.GetDictData(dataDict);
+            var vals = _modifier.GetModifiedDataDict(dataDict);
 
             // create modified values string
             var sb = new StringBuilder();
@@ -76,7 +76,7 @@ namespace PtProject.Modifier
             foreach (var col in _modifier.Fields.Values.OrderBy(c => c.Idx))
             {
                 k++;
-                string estr = vals[col.ExprStr].ToString("F06");
+                string estr = vals[col].ToString("F06");
                 if (k == 1)
                     sb.Append(estr);
                 else

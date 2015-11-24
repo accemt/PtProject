@@ -207,7 +207,8 @@ namespace PtProject.Loader
                     if (!ValueByClassNum.ContainsKey(ClassNumByValue[row.Target]))
                         ValueByClassNum.Add(ClassNumByValue[row.Target], row.Target); // class by target
 
-                    if (IsLoadForLearning) // loading for learning
+                    // --------------------------- loading for learning -------------------------------
+                    if (IsLoadForLearning)
                     {
                         if (LearnRows == null)
                         {
@@ -225,8 +226,9 @@ namespace PtProject.Loader
                         }
                         LearnRows[nrow - 1, NVars] = row.Target;
                     }
-                    else // loading for analyse
+                    else 
                     {
+                        // --------------------------- loading for analyse -----------------------------------
                         var carray = new T[NVars];
 
                         for (int i = 0, k = 0; i < blocks.Length; i++)
@@ -237,7 +239,12 @@ namespace PtProject.Loader
                                 string colname = ColumnByIdx[i];
                                 if (SkippedColumns.ContainsKey(colname))
                                     continue;
-                                carray[k++] = ParseValue(cval);
+
+                                if (!ColumnByIdxRow.ContainsKey(k))
+                                    ColumnByIdxRow.Add(k, colname);
+
+                                carray[k] = ParseValue(cval);
+                                k++;
                             }
                             else
                             {

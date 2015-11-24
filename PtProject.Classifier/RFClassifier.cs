@@ -16,6 +16,8 @@ namespace PtProject.Classifier
 {
     public class RFClassifier
     {
+        public Dictionary<string, string> IdsDict = new Dictionary<string, string>();
+
         private DataLoader<FType> _trainLoader;
         private DataLoader<FType> _testLoader;
         private Dictionary<string, List<double[]>> _testDataDict;
@@ -360,6 +362,23 @@ namespace PtProject.Classifier
                 Logger.Log(finfo.Name + " loaded;");
             }
             Logger.Log("all trees loaded;");
+        }
+
+        public void AddIdsString(string ids)
+        {
+            string[] blocks = ids.Split(',');
+            foreach (string b in blocks)
+            {
+                if (string.IsNullOrWhiteSpace(b)) continue;
+                if (!IdsDict.ContainsKey(b))
+                    IdsDict.Add(b, b);
+            }
+
+            foreach (string sid in IdsDict.Keys)
+            {
+                if (!string.IsNullOrWhiteSpace(sid))
+                    AddIdColumn(sid);
+            }
         }
     }
 }

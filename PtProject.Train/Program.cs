@@ -32,20 +32,21 @@ namespace PtProject.Train
             Logger.Log("ntrees = " + ntrees);
             Logger.Log("d = " + d);
 
-            var cls = new RFClassifier(trainPath, testPath, target);
-
-            var idsDict = ids.Split(',').ToDictionary(c => c);
-            foreach (string sid in idsDict.Keys)
+            try
             {
-                if (!string.IsNullOrWhiteSpace(sid))
-                    cls.AddIdColumn(sid);
-            }
-            cls.SetRFParams(ntrees, d, 2);
-            cls.LoadData();
-            var result = cls.Build(true);
+                var cls = new RFClassifier(trainPath, testPath, target);
+                cls.AddIdsString(ids);
+                cls.SetRFParams(ntrees, d, 2);
+                cls.LoadData();
+                var result = cls.Build(true);
 
-            Logger.Log("AUC = " + result.LastResult.AUC);
-            Logger.Log("LogLoss = " + result.LastResult.LogLoss);
+                Logger.Log("AUC = " + result.LastResult.AUC);
+                Logger.Log("LogLoss = " + result.LastResult.LogLoss);
+            }
+            catch (Exception e)
+            {
+                Logger.Log(e);
+            }
         }
     }
 }
