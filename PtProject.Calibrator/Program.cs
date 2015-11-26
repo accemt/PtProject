@@ -55,7 +55,8 @@ namespace PtProject.Calibrator
             fdList = fdList.OrderByDescending(c => c).ToList();
 
             var tdList = new List<double>(FactorManager.GetTargetValues());
-            tdList = tdList.OrderBy(c => c).ToList();
+            //tdList = tdList.OrderBy(c => c).ToList();
+            tdList = tdList.OrderByDescending(c => c).ToList();
 
             using (var sw = new StreamWriter(new FileStream("depstat.csv", FileMode.Create, FileAccess.Write)))
             {
