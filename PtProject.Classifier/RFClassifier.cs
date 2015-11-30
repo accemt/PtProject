@@ -54,8 +54,8 @@ namespace PtProject.Classifier
             _testPath = testPath;
             _target = target;
 
-            _trainLoader = new DataLoader<FType>(_target);
-            _testLoader = new DataLoader<FType>(_target);
+            _trainLoader = _target != null ? new DataLoader<FType>(_target) : new DataLoader<FType>();
+            _testLoader = _target != null ? new DataLoader<FType>(_target) : new DataLoader<FType>();
         }
 
         /// <summary>
@@ -220,7 +220,7 @@ namespace PtProject.Classifier
         /// </summary>
         /// <param name="sarr">array of double params</param>
         /// <returns></returns>
-        public double[] PredictProba(double[] sarr)
+        public double[] PredictProba(double[] sarr, bool devide=true)
         {
             var y = new double[_nclasses];
             int cnt = _treesDict.Keys.Count();
@@ -234,8 +234,11 @@ namespace PtProject.Classifier
                     y[i] += sy[i];
             }
 
-            for (int i = 0; i < y.Length; i++)
-                y[i] /= cnt;
+            if (devide)
+            {
+                for (int i = 0; i < y.Length; i++)
+                    y[i] /= cnt;
+            }
 
             return y;
         }
@@ -343,25 +346,38 @@ namespace PtProject.Classifier
             return tree;
         }
 
-        public void LoadTrees(string root)
+        /// <summary>
+        /// Load trees from dump files
+        /// </summary>
+        /// <param name="root">diretory with trees</param>
+        /// <param name="cnt">trees count in bucket</param>
+        /// <param name="bucket">number of bucket</param>
+        /// <returns>loaded trees count</returns>
+        public int LoadTrees(string root, int cnt=0, int bucket=0)
         {
             string treesDir = Environment.CurrentDirectory + "\\" + root;
             if (!Directory.Exists(treesDir))
             {
                 Logger.Log("directory " + root + " doesn't exists");
-                return;
+                return 0;
             }
             var dinfo = new DirectoryInfo(treesDir);
             _treesDict.Clear();
 
             int idx = 0;
-            foreach (var finfo in dinfo.GetFiles())
+            var files = dinfo.GetFiles().OrderBy(f => f.Name).ToArray();
+            if (cnt > 0)
+            {
+                files = files.Skip(cnt * bucket).Take(cnt).ToArray();
+            }
+            foreach (var finfo in files)
             {
                 var tree = DeserializeTree(finfo.FullName);
                 _treesDict.Add(idx++, tree);
                 Logger.Log(finfo.Name + " loaded;");
             }
             Logger.Log("all trees loaded;");
+            return idx;
         }
 
         public void AddIdsString(string ids)
@@ -379,6 +395,12 @@ namespace PtProject.Classifier
                 if (!string.IsNullOrWhiteSpace(sid))
                     AddIdColumn(sid);
             }
+        }
+
+        public void Clear()
+        {
+            _treesDict.Clear();
+            //System.GC.Collect();
         }
     }
 }
