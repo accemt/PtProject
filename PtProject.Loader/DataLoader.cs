@@ -52,7 +52,7 @@ namespace PtProject.Loader
         {
             string ncol = col.ToLower();
 
-            if (!IdName.ContainsKey(ncol)) IdName.Add(ncol.ToLower(),1);
+            if (!Ids.ContainsKey(ncol)) Ids.Add(ncol.ToLower(),1);
             AddSkipColumn(ncol);
         }
 
@@ -92,7 +92,7 @@ namespace PtProject.Loader
 
         public DataLoader()
         {
-            IdName = new Dictionary<string, int>();
+            Ids = new Dictionary<string, int>();
 
             SplitSymbol = ';';
             var appSettings = ConfigurationManager.AppSettings;
@@ -155,7 +155,7 @@ namespace PtProject.Loader
                         if (TargetName != null)
                             TargetIdx = IdxByColumn[TargetName]; // target column index
 
-                        foreach (var iname in IdName.Keys)
+                        foreach (var iname in Ids.Keys)
                         {
                             if (!IdxByColumn.ContainsKey(iname))
                             {

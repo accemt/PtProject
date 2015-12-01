@@ -5,9 +5,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace PtProject.Calibrator.Domain
+namespace PtProject.Domain.Util
 {
-    public class FactorStatItem
+    public class FactorManagerStatItem
     {
         public string Factor1;
         public string Factor2;
@@ -25,9 +25,9 @@ namespace PtProject.Calibrator.Domain
             return Factor1 + " " + Factor2 + ": " + Chi2Coeff;
         }
 
-        public static FactorStatItem[] ParseFromFile(string path)
+        public static FactorManagerStatItem[] ParseFromFile(string path)
         {
-            var results = new List<FactorStatItem>();
+            var results = new List<FactorManagerStatItem>();
             string[] lines = File.ReadAllLines(path);
 
             var idxByName = new Dictionary<string, int>();
@@ -54,7 +54,7 @@ namespace PtProject.Calibrator.Domain
                     continue;
                 }
 
-                var item = new FactorStatItem();
+                var item = new FactorManagerStatItem();
                 item.Factor1 = GetStringValue(blocks, "factor1", idxByName);
                 item.Factor2 = GetStringValue(blocks, "factor2", idxByName);
 

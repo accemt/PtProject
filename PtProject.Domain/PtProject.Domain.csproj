@@ -58,8 +58,11 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Util\CombinationIterator.cs" />
     <Compile Include="DataRow.cs" />
+    <Compile Include="Util\FactorManager.cs" />
     <Compile Include="FactorStat.cs" />
+    <Compile Include="Util\FactorStatItem.cs" />
     <Compile Include="FinalFuncResult.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="StatItem.cs" />

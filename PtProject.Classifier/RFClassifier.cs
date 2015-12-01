@@ -117,7 +117,7 @@ namespace PtProject.Classifier
             _trainLoader.Load(_trainPath);
 
             // loading test file
-            foreach (var id in _trainLoader.IdName.Keys) // the same id's
+            foreach (var id in _trainLoader.Ids.Keys) // the same id's
                 _testLoader.AddIdColumn(id);
 
             foreach (var col in _trainLoader.SkippedColumns.Keys) // the same drio columns

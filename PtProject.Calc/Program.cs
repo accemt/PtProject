@@ -90,7 +90,7 @@ namespace PtProject.Calc
                         var mvals = modifier.GetModifiedDataVector(vals);
                         var prob = cls.PredictProba(mvals);
 
-                        sw.WriteLine(row.Id + ";" + prob[1] + ";" + row.Target);
+                        sw.WriteLine(row.Id + ";" + prob[1].ToString("F06") + ";" + row.Target);
 
                         if (idx % 12345 == 0)
                         {
@@ -167,7 +167,7 @@ namespace PtProject.Calc
                     foreach (var row in loader.Rows)
                     {
                         double prob = probDict[row.Id] / totaltrees;
-                        sw.WriteLine(row.Id + ";" + prob.ToString("F04") + ";" + row.Target);
+                        sw.WriteLine(row.Id + ";" + prob.ToString("F06") + ";" + row.Target);
                     }
 
                     Logger.Log(idx + " lines writed; done;");

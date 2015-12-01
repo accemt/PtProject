@@ -41,7 +41,7 @@ namespace PtProject.Loader
 
         public int NVars { get; protected set; }
         public string TargetName { get; protected set; }
-        public Dictionary<string, int> IdName { get; protected set; }
+        public Dictionary<string, int> Ids { get; protected set; }
 
         /// <summary>
         /// columns for skeeping

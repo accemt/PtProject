@@ -28,6 +28,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PtProject.Eval", "PtProject
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PtProject.Calc", "PtProject.Calc\PtProject.Calc.csproj", "{3DB1E42C-58D5-488F-92DE-BD48C347F16B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PtProject.CategoryModifier", "PtProject.CategoryModifier\PtProject.CategoryModifier.csproj", "{52728596-1913-4788-9808-6D550038F72A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -108,6 +110,14 @@ Global
 		{3DB1E42C-58D5-488F-92DE-BD48C347F16B}.Release|Any CPU.Build.0 = Release|Any CPU
 		{3DB1E42C-58D5-488F-92DE-BD48C347F16B}.Release|x64.ActiveCfg = Release|x64
 		{3DB1E42C-58D5-488F-92DE-BD48C347F16B}.Release|x64.Build.0 = Release|x64
+		{52728596-1913-4788-9808-6D550038F72A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{52728596-1913-4788-9808-6D550038F72A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{52728596-1913-4788-9808-6D550038F72A}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{52728596-1913-4788-9808-6D550038F72A}.Debug|x64.Build.0 = Debug|Any CPU
+		{52728596-1913-4788-9808-6D550038F72A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{52728596-1913-4788-9808-6D550038F72A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{52728596-1913-4788-9808-6D550038F72A}.Release|x64.ActiveCfg = Release|x64
+		{52728596-1913-4788-9808-6D550038F72A}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

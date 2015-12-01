@@ -18,6 +18,7 @@ namespace PtProject.Modifier
         static StreamWriter _sw;
         static DataModifier _modifier;
         static int _idx; //
+        static object _obj = new object();
 
         static void Main(string[] args)
         {
@@ -94,7 +95,7 @@ namespace PtProject.Modifier
                 _sw.Flush();
             }
 
-            return new object();
+            return _obj;
         }
 
         static string CreateHeader()

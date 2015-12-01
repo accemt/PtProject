@@ -48,13 +48,14 @@ namespace PtProject.Calibrator
 
         private static void CreateDepStat(string trainPath, string testPath, string depstatPath, string ids, string target, string measureField)
         {
-            FactorManager.Load(depstatPath, target, measureField);
+            var fmngr = new FactorManager();
+            fmngr.Load(depstatPath, target, measureField);
 
             var fdList = new List<double>();
             fdList.Add(0); 
             fdList = fdList.OrderByDescending(c => c).ToList();
 
-            var tdList = new List<double>(FactorManager.GetTargetValues());
+            var tdList = new List<double>(fmngr.GetTargetValues());
             //tdList = tdList.OrderBy(c => c).ToList();
             tdList = tdList.OrderByDescending(c => c).ToList();
 
@@ -69,10 +70,10 @@ namespace PtProject.Calibrator
                     {
                         try
                         {
-                            FactorManager.TargDep = td;
-                            FactorManager.FactorDep = fd;
-                            FactorManager.SelectFactors();
-                            var factors = FactorManager.VisibleFactors;
+                            fmngr.TargDep = td;
+                            fmngr.FactorDep = fd;
+                            fmngr.SelectFactors();
+                            var factors = fmngr.VisibleFactors;
                             Array.Sort(factors);
                             string vstr = string.Join("@", factors);
 
@@ -83,7 +84,7 @@ namespace PtProject.Calibrator
                                 cls.SetRFParams(300, 0.1, 2);
                                 var fdict = factors.ToDictionary(c => c);
 
-                                foreach (string variable in FactorManager.FactorDict.Keys)
+                                foreach (string variable in fmngr.FactorDict.Keys)
                                 {
                                     if (variable == target || cls.IdsDict.ContainsKey(variable)) continue;
                                     if (!fdict.ContainsKey(variable))
@@ -99,7 +100,7 @@ namespace PtProject.Calibrator
                                 Logger.Log("skipping...");
                             }
 
-                            sw.WriteLine(FactorManager.TargDep.ToString("F02") + ";" + FactorManager.FactorDep.ToString("F02") + ";" + factors.Length + ";" + countedDict[vstr].LastResult.AUC + ";" + countedDict[vstr].BestResult.AUC + ";" + vstr + ";" + measureField);
+                            sw.WriteLine(fmngr.TargDep.ToString("F02") + ";" + fmngr.FactorDep.ToString("F02") + ";" + factors.Length + ";" + countedDict[vstr].LastResult.AUC + ";" + countedDict[vstr].BestResult.AUC + ";" + vstr + ";" + measureField);
                             sw.Flush();
                             Logger.Log("td=" + td.ToString("F02") + "; fd=" + fd.ToString("F02") + "; cnt=" + factors.Length + ";" + countedDict[vstr].LastResult.AUC);
                         }

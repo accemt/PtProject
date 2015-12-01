@@ -1,47 +1,46 @@
-﻿using PtProject.Calibrator.Domain;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace PtProject.Calibrator
+namespace PtProject.Domain.Util
 {
-    public static class FactorManager
+    public class FactorManager
     {
-        public static FactorStatItem[] Items { get; set; }
-        public static Dictionary<string, Dictionary<string, FactorStatItem>> FactorDict { get; set; }
-        public static string[] VisibleFactors { get; set; }
-        public static Dictionary<string, int> ExcludeFactros = new Dictionary<string, int>();
+        public FactorManagerStatItem[] Items { get; set; }
+        public Dictionary<string, Dictionary<string, FactorManagerStatItem>> FactorDict { get; set; }
+        public string[] VisibleFactors { get; set; }
+        public Dictionary<string, int> ExcludeFactros = new Dictionary<string, int>();
 
-        public static double TargDep = 1;
-        public static double FactorDep = 1;
+        public double TargDep = 1;
+        public double FactorDep = 1;
 
-        public static string TargetField;
-        public static string MeasureField;
+        public string TargetField;
+        public string MeasureField;
 
-        private static Dictionary<double, int> _tdList = new Dictionary<double, int>();
-        private static Dictionary<double, int> _pdList = new Dictionary<double, int>();
+        private Dictionary<double, int> _tdList = new Dictionary<double, int>();
+        private Dictionary<double, int> _pdList = new Dictionary<double, int>();
 
-        public static void Load(string path, string target= "target", string measureFiled= "Chi2Coeff")
+        public void Load(string path, string target= "target", string measureFiled= "Chi2Coeff")
         {
-            TargetField = target;
+            TargetField = target.ToLower();
             MeasureField = measureFiled;
-            Items = FactorStatItem.ParseFromFile(path);
+            Items = FactorManagerStatItem.ParseFromFile(path);
 
-            FactorDict = new Dictionary<string, Dictionary<string, FactorStatItem>>();
+            FactorDict = new Dictionary<string, Dictionary<string, FactorManagerStatItem>>();
             foreach (var item in Items)
             {
                 double measure = GetMeasureValue(item);
 
                 if (!FactorDict.ContainsKey(item.Factor1))
-                    FactorDict.Add(item.Factor1, new Dictionary<string, FactorStatItem>());
+                    FactorDict.Add(item.Factor1, new Dictionary<string, FactorManagerStatItem>());
 
                 if (!FactorDict[item.Factor1].ContainsKey(item.Factor2))
                     FactorDict[item.Factor1].Add(item.Factor2, item);
 
                 if (!FactorDict.ContainsKey(item.Factor2))
-                    FactorDict.Add(item.Factor2, new Dictionary<string, FactorStatItem>());
+                    FactorDict.Add(item.Factor2, new Dictionary<string, FactorManagerStatItem>());
 
                 if (!FactorDict[item.Factor2].ContainsKey(item.Factor1))
                     FactorDict[item.Factor2].Add(item.Factor1, item);
@@ -52,20 +51,20 @@ namespace PtProject.Calibrator
                     if (!_pdList.ContainsKey(measure)) _pdList.Add(measure, 1); else _pdList[measure]++;
             }
 
-            if (!FactorDict.ContainsKey(TargetField)) FactorDict.Add(TargetField, new Dictionary<string, FactorStatItem>());
-            if (!FactorDict[TargetField].ContainsKey(TargetField)) FactorDict[TargetField].Add(TargetField, new FactorStatItem());
+            if (!FactorDict.ContainsKey(TargetField)) FactorDict.Add(TargetField, new Dictionary<string, FactorManagerStatItem>());
+            if (!FactorDict[TargetField].ContainsKey(TargetField)) FactorDict[TargetField].Add(TargetField, new FactorManagerStatItem());
 
             //FactorDict[TargetField][TargetField].Chi2Coeff = 0;
 
             SetVisibleFactors(FactorDict.Keys.ToArray());
         }
 
-        private static void SetVisibleFactors(string[] factors)
+        private void SetVisibleFactors(string[] factors)
         {
             VisibleFactors = factors.OrderByDescending(n => FactorDict[TargetField].ContainsKey(n) ? GetMeasureValue(FactorDict[TargetField][n]) : -1).ToArray();
         }
 
-        public static void SelectFactors()
+        public void SelectFactors()
         {
             var flist = new List<string>();
             foreach (var f in FactorDict[TargetField].Keys)
@@ -124,7 +123,7 @@ namespace PtProject.Calibrator
             SetVisibleFactors(nlist.Keys.ToArray());
         }
 
-        public static void SetExcludeFactors(string text)
+        public void SetExcludeFactors(string text)
         {
             ExcludeFactros.Clear();
             if (string.IsNullOrWhiteSpace(text)) return;
@@ -138,12 +137,12 @@ namespace PtProject.Calibrator
             }
         }
 
-        private static double GetMeasureValue(object obj)
+        private double GetMeasureValue(object obj)
         {
             return Convert.ToDouble(obj.GetType().GetField(MeasureField).GetValue(obj));
         }
 
-        public static double[] GetTargetValues()
+        public double[] GetTargetValues()
         {
             return _tdList.Keys.ToArray();
         }
