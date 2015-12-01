@@ -63,7 +63,7 @@ namespace PtProject.Calc
                 // loading classifier
                 var cls = new RFClassifier(null, null, target);
                 cls.AddIdsString(ids);
-                cls.LoadTrees("trees");
+                cls.LoadTrees(null);
 
                 // loading data
                 var loader = target == null ? new DataLoader() : new DataLoader(target);
@@ -133,30 +133,33 @@ namespace PtProject.Calc
                     Logger.Log("Processing bucket #" + idx);
 
                     cls.Clear();
-                    cnt = cls.LoadTrees("trees", bucketsize, idx);
-                    totaltrees += cnt;
-
-                    int nc = 0;
-                    // calculating prob for each row
-                    foreach (var row in loader.Rows)
+                    cnt = cls.LoadTrees(null, bucketsize, idx);
+                    if (cnt > 0)
                     {
-                        nc++;
+                        totaltrees += cnt;
 
-                        var vals = new Dictionary<string, double>();
-                        for (int i = 0; i < row.Coeffs.Length; i++)
+                        int nc = 0;
+                        // calculating prob for each row
+                        foreach (var row in loader.Rows)
                         {
-                            string colname = loader.ColumnByIdxRow[i];
-                            vals.Add(colname, row.Coeffs[i]);
+                            nc++;
+
+                            var vals = new Dictionary<string, double>();
+                            for (int i = 0; i < row.Coeffs.Length; i++)
+                            {
+                                string colname = loader.ColumnByIdxRow[i];
+                                vals.Add(colname, row.Coeffs[i]);
+                            }
+                            var mvals = modifier.GetModifiedDataVector(vals);
+                            var prob = cls.PredictProba(mvals, false);
+
+                            if (!probDict.ContainsKey(row.Id))
+                                probDict.Add(row.Id, 0);
+                            probDict[row.Id] += prob[1];
                         }
-                        var mvals = modifier.GetModifiedDataVector(vals);
-                        var prob = cls.PredictProba(mvals, false);
 
-                        if (!probDict.ContainsKey(row.Id))
-                            probDict.Add(row.Id, 0);
-                        probDict[row.Id] += prob[1];
+                        idx++;
                     }
-
-                    idx++;
                 }
                 while (cnt >= bucketsize);
 
@@ -169,8 +172,6 @@ namespace PtProject.Calc
                         double prob = probDict[row.Id] / totaltrees;
                         sw.WriteLine(row.Id + ";" + prob.ToString("F06") + ";" + row.Target);
                     }
-
-                    Logger.Log(idx + " lines writed; done;");
 
                     sw.Close();
                 }

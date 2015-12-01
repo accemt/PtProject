@@ -355,7 +355,7 @@ namespace PtProject.Classifier
         /// <returns>loaded trees count</returns>
         public int LoadTrees(string root, int cnt=0, int bucket=0)
         {
-            string treesDir = Environment.CurrentDirectory + "\\" + root;
+            string treesDir = root == null ? (Environment.CurrentDirectory + "\\trees") : (Environment.CurrentDirectory + "\\" + root);
             if (!Directory.Exists(treesDir))
             {
                 Logger.Log("directory " + root + " doesn't exists");

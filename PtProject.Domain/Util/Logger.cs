@@ -10,11 +10,12 @@ namespace PtProject.Domain.Util
         private static readonly string RootHosting;
         private static readonly object SyncObj = new object();
         public static bool IsConsole = true;
+        public static bool Enabled = true;
 
         static Logger()
         {
             RootHosting = Environment.CurrentDirectory;
-            WriteMessage("Program started.");
+            //WriteMessage("Program started.");
         }
 
         public static void Log(string message)
@@ -51,19 +52,22 @@ namespace PtProject.Domain.Util
 
         private static void WriteMessage(string message)
         {
+            if (!Enabled) return;
+
             var dinfo = new DirectoryInfo(RootHosting);
-            var sw = new StreamWriter(
+            using (var sw = new StreamWriter(
                 new FileStream(dinfo.FullName + "\\log.txt", FileMode.Append, FileAccess.Write),
-                Encoding.GetEncoding(1251));
-
-            if (message != null) message = message.Trim();
-
-            sw.WriteLine(message);
-            sw.Close();
-
-            if (IsConsole)
+                Encoding.GetEncoding(1251)))
             {
-                Console.WriteLine(message);
+                if (message != null) message = message.Trim();
+
+                sw.WriteLine(message);
+                sw.Close();
+
+                if (IsConsole)
+                {
+                    Console.WriteLine(message);
+                }
             }
         }
 
