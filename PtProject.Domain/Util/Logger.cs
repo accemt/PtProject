@@ -10,7 +10,7 @@ namespace PtProject.Domain.Util
         private static readonly string RootHosting;
         private static readonly object SyncObj = new object();
         public static bool IsConsole = true;
-        public static bool Enabled = true;
+        public static bool Enabled = false; // for lib mode
 
         static Logger()
         {
