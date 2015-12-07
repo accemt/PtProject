@@ -34,10 +34,9 @@ namespace PtProject.Train
 
             try
             {
-                var cls = new RFClassifier(trainPath, testPath, target);
-                cls.AddIdsString(ids);
+                var cls = new RFClassifier();
                 cls.SetRFParams(ntrees, d, 2);
-                cls.LoadData();
+                cls.LoadData(trainPath, testPath, ids, target);
                 var result = cls.Build(true);
 
                 Logger.Log("AUC = " + result.LastResult.AUC);

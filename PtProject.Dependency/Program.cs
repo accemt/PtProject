@@ -57,7 +57,7 @@ namespace PtProject.Dependency
             var loader = targetname!=null?(new DataLoader<FType>(targetname)) : new DataLoader<FType>();
             if (targetname!=null) loader.RemoveSkipColumn(targetname);
             loader.Load(filename);
-            var cols = loader.IdxByColumn.Keys.ToArray();
+            var cols = loader.FileIdxByColumn.Keys.ToArray();
 
             // выходной файл
             string statname = filename + "_stats.csv";
@@ -90,8 +90,8 @@ namespace PtProject.Dependency
 
                         if (counted.ContainsKey(col1) && counted[col1].ContainsKey(col2)) continue;
 
-                        int col1idx = loader.IdxByColumn[col1];
-                        int col2idx = loader.IdxByColumn[col2];
+                        int col1idx = loader.FileIdxByColumn[col1];
+                        int col2idx = loader.FileIdxByColumn[col2];
 
                         // просчитаны ли уже статиситки
                         bool stat1Exist = factorStatDict.ContainsKey(col1);

@@ -9,6 +9,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "libs", "libs", "{0D48DA2D-1
 	ProjectSection(SolutionItems) = preProject
 		libs\alglibnet2.dll = libs\alglibnet2.dll
 		libs\libs.txt = libs\libs.txt
+		libs\LibSVM-1.6.3.dll = libs\LibSVM-1.6.3.dll
 		libs\MathNet.Numerics.dll = libs\MathNet.Numerics.dll
 	EndProjectSection
 EndProject

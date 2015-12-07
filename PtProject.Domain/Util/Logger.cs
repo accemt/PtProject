@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Configuration;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
@@ -15,7 +16,15 @@ namespace PtProject.Domain.Util
         static Logger()
         {
             RootHosting = Environment.CurrentDirectory;
-            //WriteMessage("Program started.");
+            try
+            {
+                var appSettings = ConfigurationManager.AppSettings;
+                if (appSettings["LoggerEnable"] != null)
+                    Enabled = bool.Parse(appSettings["LoggerEnable"]);
+            }
+            catch (Exception e)
+            {
+            }
         }
 
         public static void Log(string message)

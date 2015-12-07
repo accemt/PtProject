@@ -120,6 +120,9 @@ namespace PtProject.Domain.Util
                 }
             }
 
+            foreach (var key in droplist.Keys)
+                nlist.Remove(key);
+
             SetVisibleFactors(nlist.Keys.ToArray());
         }
 

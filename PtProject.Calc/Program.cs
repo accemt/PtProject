@@ -61,14 +61,12 @@ namespace PtProject.Calc
             try
             {
                 // loading classifier
-                var cls = new RFClassifier(null, null, target);
-                cls.AddIdsString(ids);
+                var cls = new RFClassifier();
                 cls.LoadTrees(null);
 
                 // loading data
                 var loader = target == null ? new DataLoader() : new DataLoader(target);
-                foreach (string key in cls.IdsDict.Keys)
-                    loader.AddIdColumn(key);
+                loader.AddIdsString(ids);
                 loader.Load(dataPath);
 
                 using (var sw = new StreamWriter(new FileStream(dataPath + "_calc.csv", FileMode.Create, FileAccess.Write)))
@@ -84,7 +82,7 @@ namespace PtProject.Calc
                         var vals = new Dictionary<string, double>();
                         for (int i = 0; i < row.Coeffs.Length; i++)
                         {
-                            string colname = loader.ColumnByIdxRow[i];
+                            string colname = loader.RowColumnByIdx[i];
                             vals.Add(colname, row.Coeffs[i]);
                         }
                         var mvals = modifier.GetModifiedDataVector(vals);
@@ -115,13 +113,11 @@ namespace PtProject.Calc
             try
             {
                 // classifier
-                var cls = new RFClassifier(null, null, target);
-                cls.AddIdsString(ids);
+                var cls = new RFClassifier();
 
                 // loading data
                 var loader = target == null ? new DataLoader() : new DataLoader(target);
-                foreach (string key in cls.IdsDict.Keys)
-                    loader.AddIdColumn(key);
+                loader.AddIdsString(ids);
                 loader.Load(dataPath);
 
                 int cnt=0;
@@ -147,7 +143,7 @@ namespace PtProject.Calc
                             var vals = new Dictionary<string, double>();
                             for (int i = 0; i < row.Coeffs.Length; i++)
                             {
-                                string colname = loader.ColumnByIdxRow[i];
+                                string colname = loader.RowColumnByIdx[i];
                                 vals.Add(colname, row.Coeffs[i]);
                             }
                             var mvals = modifier.GetModifiedDataVector(vals);

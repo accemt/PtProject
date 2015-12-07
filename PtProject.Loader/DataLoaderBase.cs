@@ -9,17 +9,22 @@ namespace PtProject.Loader
         /// <summary>
         /// column name by index in file
         /// </summary>
-        public Dictionary<int, string> ColumnByIdx = new Dictionary<int, string>();
+        public Dictionary<int, string> FileColumnByIdx = new Dictionary<int, string>();
 
         /// <summary>
         /// index in file by column name
         /// </summary>
-        public Dictionary<string, int> IdxByColumn = new Dictionary<string, int>();
+        public Dictionary<string, int> FileIdxByColumn = new Dictionary<string, int>();
 
         /// <summary>
-        /// column name by index in row
+        /// column name by index in data row
         /// </summary>
-        public Dictionary<int, string> ColumnByIdxRow = new Dictionary<int, string>();
+        public Dictionary<int, string> RowColumnByIdx = new Dictionary<int, string>();
+
+        /// <summary>
+        /// index by column name in data row
+        /// </summary>
+        public Dictionary<string, int> RowIdxByColumn = new Dictionary<string, int>();
 
         /// <summary>
         /// target column index
@@ -37,10 +42,11 @@ namespace PtProject.Loader
         public double LoadFactor = 1;
 
         public bool IsLoadForLearning = false;
-        public int TotalDataLines = 0;
+        public int TotalDataLines { get; protected set; }
 
         public int NVars { get; protected set; }
         public string TargetName { get; protected set; }
+        public string IdName { get; protected set; }
         public Dictionary<string, int> Ids { get; protected set; }
 
         /// <summary>

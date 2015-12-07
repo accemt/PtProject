@@ -14,10 +14,8 @@ using FType = System.Double;
 
 namespace PtProject.Classifier
 {
-    public class RFClassifier
+    public class RFClassifier : IClassifier
     {
-        public Dictionary<string, string> IdsDict = new Dictionary<string, string>();
-
         private DataLoader<FType> _trainLoader;
         private DataLoader<FType> _testLoader;
         private Dictionary<string, List<double[]>> _testDataDict;
@@ -32,32 +30,7 @@ namespace PtProject.Classifier
 
         private Dictionary<int, alglib.decisionforest> _treesDict = new Dictionary<int, alglib.decisionforest>();
 
-        public Dictionary<int, string> TrainColumns
-        {
-            get { return _trainLoader.ColumnByIdx; }
-        }
-
-        public Dictionary<int, string> TestColumns
-        {
-            get { return _testLoader.ColumnByIdx; }
-        }
-
-        /// <summary>
-        /// Creates random forest classifier
-        /// </summary>
-        /// <param name="trainPath"></param>
-        /// <param name="testPath"></param>
-        /// <param name="target"></param>
-        public RFClassifier(string trainPath, string testPath, string target)
-        {
-            _trainPath = trainPath;
-            _testPath = testPath;
-            _target = target;
-
-            _trainLoader = _target != null ? new DataLoader<FType>(_target) : new DataLoader<FType>();
-            _testLoader = _target != null ? new DataLoader<FType>(_target) : new DataLoader<FType>();
-        }
-
+        
         /// <summary>
         /// Drops columns from learning set
         /// </summary>
@@ -66,26 +39,8 @@ namespace PtProject.Classifier
         {
             foreach (var c in cols)
             {
-                AddDropColumn(c);
+                _trainLoader.AddSkipColumn(c);
             }
-        }
-
-        /// <summary>
-        /// Drops column from learning set
-        /// </summary>
-        /// <param name="col">column for drop</param>
-        public void AddDropColumn(string col)
-        {
-            _trainLoader.AddSkipColumn(col);
-        }
-
-        /// <summary>
-        /// Id column. If empty then row_number will be used.
-        /// </summary>
-        /// <param name="id"></param>
-        public void AddIdColumn(string id)
-        {
-            _trainLoader.AddIdColumn(id);
         }
 
         public void SetRFParams(int ntrees, double r, int nclasses)
@@ -97,9 +52,19 @@ namespace PtProject.Classifier
 
         /// <summary>
         /// Reads data from train and test files
+        /// <param name="trainPath">train file path</param>
+        /// <param name="testPath">test file path</param>
+        /// <param name="target">target variable name</param>
         /// </summary>
-        public void LoadData()
+        public void LoadData(string trainPath, string testPath, string ids, string target)
         {
+            _trainPath = trainPath;
+            _testPath = testPath;
+            _target = target;
+
+            _trainLoader = _target != null ? new DataLoader<FType>(_target) : new DataLoader<FType>();
+            _testLoader = _target != null ? new DataLoader<FType>(_target) : new DataLoader<FType>();
+
             if (!File.Exists(_trainPath))
             {
                 Logger.Log("train file " + _trainPath + " not found");
@@ -114,13 +79,14 @@ namespace PtProject.Classifier
 
             // loading train file
             _trainLoader.IsLoadForLearning = true;
+            _trainLoader.AddIdsString(ids);
             _trainLoader.Load(_trainPath);
 
             // loading test file
             foreach (var id in _trainLoader.Ids.Keys) // the same id's
                 _testLoader.AddIdColumn(id);
 
-            foreach (var col in _trainLoader.SkippedColumns.Keys) // the same drio columns
+            foreach (var col in _trainLoader.SkippedColumns.Keys) // the same columns
                 _testLoader.AddSkipColumn(col);
 
             // loading
@@ -355,7 +321,7 @@ namespace PtProject.Classifier
         /// <returns>loaded trees count</returns>
         public int LoadTrees(string root, int cnt=0, int bucket=0)
         {
-            string treesDir = root == null ? (Environment.CurrentDirectory + "\\trees") : (Environment.CurrentDirectory + "\\" + root);
+            string treesDir = root == null ? (Environment.CurrentDirectory + "\\trees") : root;
             if (!Directory.Exists(treesDir))
             {
                 Logger.Log("directory " + root + " doesn't exists");
@@ -380,27 +346,19 @@ namespace PtProject.Classifier
             return idx;
         }
 
-        public void AddIdsString(string ids)
-        {
-            string[] blocks = ids.Split(',');
-            foreach (string b in blocks)
-            {
-                if (string.IsNullOrWhiteSpace(b)) continue;
-                if (!IdsDict.ContainsKey(b))
-                    IdsDict.Add(b, b);
-            }
-
-            foreach (string sid in IdsDict.Keys)
-            {
-                if (!string.IsNullOrWhiteSpace(sid))
-                    AddIdColumn(sid);
-            }
-        }
-
         public void Clear()
         {
             _treesDict.Clear();
-            //System.GC.Collect();
+        }
+
+        public ClassifierResult Build()
+        {
+            return Build(false);
+        }
+
+        public FType[] PredictProba(FType[] sarr)
+        {
+            return PredictProba(sarr, true);
         }
     }
 }

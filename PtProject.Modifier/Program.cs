@@ -62,7 +62,7 @@ namespace PtProject.Modifier
             var dataDict = new Dictionary<string, double>();
             for (int i = 0; i < row.Coeffs.Length; i++)
             {
-                var fname = _loader.ColumnByIdx[i];
+                var fname = _loader.FileColumnByIdx[i];
                 double dval = row.Coeffs[i];
 
                 dataDict.Add(fname, dval);

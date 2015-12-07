@@ -79,19 +79,17 @@ namespace PtProject.Calibrator
 
                             if (!countedDict.ContainsKey(vstr))
                             {
-                                var cls = new RFClassifier(trainPath, testPath, target);
-                                cls.AddIdsString(ids);
+                                var cls = new RFClassifier();
                                 cls.SetRFParams(300, 0.1, 2);
                                 var fdict = factors.ToDictionary(c => c);
 
                                 foreach (string variable in fmngr.FactorDict.Keys)
                                 {
-                                    if (variable == target || cls.IdsDict.ContainsKey(variable)) continue;
                                     if (!fdict.ContainsKey(variable))
                                         cls.AddDropColumns(new string[] { variable });
                                 }
 
-                                cls.LoadData();
+                                cls.LoadData(trainPath, testPath, ids, target);
                                 var result = cls.Build();
                                 countedDict.Add(vstr, result);
                             }
@@ -115,9 +113,8 @@ namespace PtProject.Calibrator
 
         private static void CreateRFStat(string trainPath, string testPath, string ids, string target)
         {
-            var cls = new RFClassifier(trainPath, testPath, target);
-            cls.AddIdsString(ids);
-            cls.LoadData();
+            var cls = new RFClassifier();
+            cls.LoadData(trainPath, testPath, ids, target);
 
             using (var sw = new StreamWriter(new FileStream("rfstat.csv", FileMode.Create, FileAccess.Write)))
             {

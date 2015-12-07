@@ -62,8 +62,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ClassifierResult.cs" />
+    <Compile Include="IClassifier.cs" />
     <Compile Include="RFClassifier.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SVMClassifier.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PtProject.Loader\PtProject.Loader.csproj">

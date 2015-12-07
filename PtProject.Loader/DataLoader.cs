@@ -12,14 +12,25 @@ namespace PtProject.Loader
 {
     public class DataLoader<T> : DataLoaderBase
     {
-        // By default loading strategy data will be load in that list
+        /// <summary>
+        /// // By default loading strategy data will be load in that list
+        /// </summary>
         public List<DataRow<T>> Rows = new List<DataRow<T>>();
 
-        // For machine-learning data will be load in that array
+        /// <summary>
+        /// For machine-learning data will be load in that array
+        /// </summary>
         public T[,] LearnRows;
 
+        /// <summary>
+        /// That function will be use insted parsing row
+        /// </summary>
         public Func<DataRow<T>, object> ProceedRowFunc;
 
+        /// <summary>
+        /// Get all loaded rows
+        /// </summary>
+        /// <returns></returns>
         public override List<DataRow<object>> GetRows()
         {
             var list = new List<DataRow<object>>();
@@ -30,65 +41,46 @@ namespace PtProject.Loader
             return list;
         }
 
+        /// <summary>
+        /// Template type, double by default
+        /// </summary>
+        /// <returns></returns>
         public override Type GetItemType()
         {
             return typeof(T);
         }
 
-        public Dictionary<int, SortedDictionary<T, int>> CntDict;
-        public Dictionary<int, Dictionary<T, int>> IdxDict;
+        /// <summary>
+        /// Summary counts for target variable
+        /// </summary>
         public SortedDictionary<T, int> TargetStat = new SortedDictionary<T, int>();
+
+        /// <summary>
+        /// target variable will be encoded by classes
+        /// that dict used to get class id by target var value
+        /// </summary>
         public Dictionary<T, int> ClassNumByValue = new Dictionary<T, int>();
+
+        /// <summary>
+        /// target variable will be encoded by classes
+        /// that dict used to get target var value by class id
+        /// </summary>
         public Dictionary<int, T> ValueByClassNum = new Dictionary<int, T>();
-        //public Dictionary<string, string> DropIds = new Dictionary<string, string>();
-
-        private Dictionary<int, int> _idIdx = new Dictionary<int, int>(); // id indexes (many)
 
         /// <summary>
-        /// Id column by default skipped and can be multiply
+        /// variables count distiribution
         /// </summary>
-        /// <param name="col"></param>
-        public void AddIdColumn(string col)
-        {
-            string ncol = col.ToLower();
-
-            if (!Ids.ContainsKey(ncol)) Ids.Add(ncol.ToLower(),1);
-            AddSkipColumn(ncol);
-        }
+        public Dictionary<string, Dictionary<T, int>> VarsDistr = new Dictionary<string, Dictionary<T, int>>();
 
         /// <summary>
-        /// Target column by default skipped and can be only one
+        /// if true stats will collect to VarsDistr
         /// </summary>
-        /// <param name="col"></param>
-        public void AddTargetColumn(string col)
-        {
-            string ncol = col.ToLower();
-            TargetName = ncol;
-            AddSkipColumn(ncol);
-        }
+        public bool CollectDistrStat = false;
 
-        public void AddSkipColumn(string col)
-        {
-            string ncol = col.ToLower();
-
-            if (string.IsNullOrWhiteSpace(ncol)) return;
-            if (!SkippedColumns.ContainsKey(ncol))
-                SkippedColumns.Add(ncol,1);
-        }
-
-        public void RemoveSkipColumn(string col)
-        {
-            string ncol = col.ToLower();
-
-            if (string.IsNullOrWhiteSpace(ncol)) return;
-            if (SkippedColumns.ContainsKey(ncol))
-                SkippedColumns.Remove(ncol);
-        }
-
-        public DataLoader(string target) : this()
-        {
-            AddTargetColumn(target);
-        }
+        /// <summary>
+        /// id indexes (many)
+        /// </summary>
+        private SortedDictionary<int, int> _idIdx = new SortedDictionary<int, int>();
 
         public DataLoader()
         {
@@ -98,6 +90,11 @@ namespace PtProject.Loader
             var appSettings = ConfigurationManager.AppSettings;
             if (appSettings["SplitSymbol"] != null)
                 SplitSymbol = appSettings["SplitSymbol"][0];
+        }
+
+        public DataLoader(string target) : this()
+        {
+            AddTargetColumn(target);
         }
 
         public DataLoader(string target, string id) : this()
@@ -111,164 +108,187 @@ namespace PtProject.Loader
             try
             {
                 if (IsLoadForLearning)
-                {
                     TotalDataLines = GetDataLinesCount(filename);
-                }
 
-                var sr = new StreamReader(new FileStream(filename, FileMode.Open, FileAccess.Read), Encoding.GetEncoding(1251));
-                var rnd = new Random(DateTime.Now.Millisecond + DateTime.Now.Second * 1000);
 
-                int idx = 0;
-                int nrow = 0;
-                string nextline;
-                int classNum = 0;
-                while ((nextline = sr.ReadLine()) != null)
+                using (var sr = new StreamReader(new FileStream(filename, FileMode.Open, FileAccess.Read), Encoding.GetEncoding(1251)))
                 {
-                    idx++;
-                    if (string.IsNullOrWhiteSpace(nextline)) continue;
-                    string[] blocks = GetStringBlocks(nextline);
-
-                    // header row
-                    if (idx == 1)
+                    int idx = 0;
+                    int nrow = 0;
+                    string nextline;
+                    int classNum = 0;
+                    while ((nextline = sr.ReadLine()) != null)
                     {
-                        for (int i = 0; i < blocks.Length; i++)
-                        {
-                            string cname = blocks[i]; // column name
+                        idx++;
+                        if (string.IsNullOrWhiteSpace(nextline)) continue;
+                        string[] blocks = GetStringBlocks(nextline);
 
-                            if (!ColumnByIdx.ContainsKey(i))
-                                ColumnByIdx.Add(i, cname);
-                            if (!IdxByColumn.ContainsKey(cname))
-                                IdxByColumn.Add(cname, i);
-                            else
-                                Logger.Log("duplicate column name: " + cname + ", exiting");
-                        }
-
-                        if (TargetName != null)
+                        // header row
+                        if (idx == 1)
                         {
-                            if (!IdxByColumn.ContainsKey(TargetName))
+                            for (int i = 0; i < blocks.Length; i++)
                             {
-                                Logger.Log("data don`t have a target (" + TargetName + ") column, exiting");
-                                break;
+                                string cname = blocks[i]; // column name
+
+                                if (!FileColumnByIdx.ContainsKey(i))
+                                    FileColumnByIdx.Add(i, cname);
+                                if (!FileIdxByColumn.ContainsKey(cname))
+                                    FileIdxByColumn.Add(cname, i);
+                                else
+                                    Logger.Log("duplicate column name: " + cname + ", exiting");
                             }
-                        }
 
-                        if (TargetName != null)
-                            TargetIdx = IdxByColumn[TargetName]; // target column index
-
-                        foreach (var iname in Ids.Keys)
-                        {
-                            if (!IdxByColumn.ContainsKey(iname))
+                            if (TargetName != null)
                             {
-                                throw new InvalidDataException("id column '" + iname + "' not found");
+                                if (!FileIdxByColumn.ContainsKey(TargetName))
+                                {
+                                    Logger.Log("data don`t have a target (" + TargetName + ") column, exiting");
+                                    break;
+                                }
                             }
-                            int sidx = IdxByColumn[iname];
-                            if (!_idIdx.ContainsKey(sidx)) _idIdx.Add(sidx, 1);
-                        }
 
-                        var toDel = (from t in SkippedColumns.Keys where !IdxByColumn.ContainsKey(t) select t).ToList();
-                        toDel.ForEach(c => SkippedColumns.Remove(c));
+                            if (TargetName != null)
+                                TargetIdx = FileIdxByColumn[TargetName]; // target column index
 
-                        NVars = ColumnByIdx.Count - SkippedColumns.Count;
-
-                        continue;
-                    }
-
-                    // data row
-                    nrow++;
-
-                    if (blocks.Length > IdxByColumn.Count)
-                    {
-                        Logger.Log("error parsing row #" + nrow);
-                        continue;
-                    }
-
-                    if (rnd.NextDouble() >= LoadFactor) continue;
-
-                    var row = new DataRow<T>();
-
-                    // target 
-                    if (TargetName != null) row.Target = ParseValue(blocks[TargetIdx]);
-
-                    // creating composite id
-                    row.Id = GetStringId(blocks);
-                    if (string.IsNullOrEmpty(row.Id)) row.Id = nrow.ToString();
-
-                    // drop columns
-                    //if (DropIds != null && DropIds.ContainsKey(row.Id)) continue;
-
-                    // save stats for target value
-                    if (!TargetStat.ContainsKey(row.Target))
-                        TargetStat.Add(row.Target, 0);
-                    TargetStat[row.Target]++;   // count by target
-
-                    if (!ClassNumByValue.ContainsKey(row.Target))
-                        ClassNumByValue.Add(row.Target, classNum++); // class by target
-
-                    if (!ValueByClassNum.ContainsKey(ClassNumByValue[row.Target]))
-                        ValueByClassNum.Add(ClassNumByValue[row.Target], row.Target); // class by target
-
-                    // --------------------------- loading for learning -------------------------------
-                    if (IsLoadForLearning)
-                    {
-                        if (LearnRows == null)
-                        {
-                            LearnRows = new T[TotalDataLines, NVars + 1]; // all variables +1 for target
-                        }
-
-                        for (int i = 0, k = 0; i < blocks.Length; i++)
-                        {
-                            string cval = blocks[i];
-                            string colname = ColumnByIdx[i];
-                            if (SkippedColumns.ContainsKey(colname))
-                                continue;
-
-                            LearnRows[nrow - 1, k++] = ParseValue(cval);
-                        }
-                        LearnRows[nrow - 1, NVars] = row.Target;
-                    }
-                    else 
-                    {
-                        // --------------------------- loading for analyse -----------------------------------
-                        var carray = new T[NVars];
-
-                        for (int i = 0, k = 0; i < blocks.Length; i++)
-                        {
-                            string cval = blocks[i];
-                            if (ColumnByIdx.ContainsKey(i))
+                            // id columns
+                            foreach (var iname in Ids.Keys)
                             {
-                                string colname = ColumnByIdx[i];
+                                if (!FileIdxByColumn.ContainsKey(iname))
+                                {
+                                    throw new InvalidDataException("id column '" + iname + "' not found");
+                                }
+                                int sidx = FileIdxByColumn[iname];
+                                if (!_idIdx.ContainsKey(sidx)) _idIdx.Add(sidx, 1);
+                            }
+                            if (Ids.Count>0)
+                            {
+                                IdName = GetStringId(Ids.Keys.ToArray());
+                            }
+
+                            // skip columns
+                            var toDel = (from t in SkippedColumns.Keys where !FileIdxByColumn.ContainsKey(t) select t).ToList();
+                            toDel.ForEach(c => SkippedColumns.Remove(c));
+
+                            // count of variables except skipped
+                            NVars = FileColumnByIdx.Count - SkippedColumns.Count;
+
+                            continue;
+                        }
+
+                        // data row
+                        nrow++;
+
+                        if (blocks.Length > FileIdxByColumn.Count)
+                        {
+                            Logger.Log("error parsing row #" + nrow);
+                            continue;
+                        }
+
+                        if (RandomGen.GetDouble() >= LoadFactor) continue;
+
+                        var row = new DataRow<T>();
+
+                        // parse target 
+                        if (TargetName != null) row.Target = ParseValue(blocks[TargetIdx]);
+
+                        // creating composite id
+                        row.Id = GetStringId(blocks);
+                        if (string.IsNullOrEmpty(row.Id)) row.Id = nrow.ToString(); //using row_number if ids not set
+
+                        // save stats for target value
+                        if (!TargetStat.ContainsKey(row.Target))
+                            TargetStat.Add(row.Target, 0);
+                        TargetStat[row.Target]++;   // count by target
+
+                        // class id by target
+                        if (!ClassNumByValue.ContainsKey(row.Target))
+                            ClassNumByValue.Add(row.Target, classNum++);
+
+                        // target by class id
+                        if (!ValueByClassNum.ContainsKey(ClassNumByValue[row.Target]))
+                            ValueByClassNum.Add(ClassNumByValue[row.Target], row.Target); 
+
+
+                        // --------------------------- loading for learning -------------------------------
+                        if (IsLoadForLearning)
+                        {
+                            if (LearnRows == null)
+                                LearnRows = new T[TotalDataLines, NVars + 1]; // all variables +1 for target
+
+                            for (int i = 0, k = 0; i < blocks.Length; i++)
+                            {
+                                string cval = blocks[i];
+                                string colname = FileColumnByIdx[i];
                                 if (SkippedColumns.ContainsKey(colname))
                                     continue;
 
-                                if (!ColumnByIdxRow.ContainsKey(k))
-                                    ColumnByIdxRow.Add(k, colname);
+                                T pval = ParseValue(cval);
+                                LearnRows[nrow - 1, k++] = pval;
+                                SaveVarDistr(colname, pval);
+                            }
+                            LearnRows[nrow - 1, NVars] = row.Target;
+                        }
+                        else
+                        {
+                            // --------------------------- loading for analyse -----------------------------------
+                            var carray = new T[NVars];
 
-                                carray[k] = ParseValue(cval);
-                                k++;
-                            }
-                            else
+                            for (int i = 0, k = 0; i < blocks.Length; i++)
                             {
-                                Logger.Log("error parsing id=" + row.Id);
+                                string cval = blocks[i];
+                                if (FileColumnByIdx.ContainsKey(i))
+                                {
+                                    string colname = FileColumnByIdx[i];
+                                    if (SkippedColumns.ContainsKey(colname))
+                                        continue;
+
+                                    if (!RowColumnByIdx.ContainsKey(k))
+                                        RowColumnByIdx.Add(k, colname);
+
+                                    if (!RowIdxByColumn.ContainsKey(colname))
+                                        RowIdxByColumn.Add(colname,k);
+
+                                    T pval = ParseValue(cval);
+                                    carray[k] = pval;
+                                    k++;
+                                    SaveVarDistr(colname, pval);
+                                }
+                                else
+                                {
+                                    Logger.Log("error parsing id=" + row.Id);
+                                }
                             }
+
+                            row.Coeffs = carray;
+                            if (ProceedRowFunc == null) // don't save row in case of ProceedRowFunc not null
+                                Rows.Add(row);
+                            else
+                                ProceedRowFunc(row);
                         }
 
-                        row.Coeffs = carray;
-                        if (ProceedRowFunc == null)
-                            Rows.Add(row);
-                        else
-                            ProceedRowFunc(row);
+                        if (idx % 12345 == 0) Logger.Log(idx + " lines loaded");
+                        if (MaxRowsLoaded != 0 && idx > MaxRowsLoaded) break;
                     }
 
-                    if (idx % 12345 == 0) Logger.Log(idx + " lines loaded");
-                    if (MaxRowsLoaded != 0 && idx > MaxRowsLoaded) break;
+                    Logger.Log((idx - 1) + " lines loaded;");
                 }
-
-                Logger.Log((idx-1) + " lines loaded;");
             }
             catch (Exception e)
             {
                 Logger.Log(e);
                 throw e;
+            }
+        }
+
+        private void SaveVarDistr(string colname, T pval)
+        {
+            if (CollectDistrStat)
+            {
+                if (!VarsDistr.ContainsKey(colname))
+                    VarsDistr.Add(colname, new Dictionary<T, int>());
+                if (!VarsDistr[colname].ContainsKey(pval))
+                    VarsDistr[colname].Add(pval, 0);
+                VarsDistr[colname][pval]++;
             }
         }
 
@@ -346,6 +366,57 @@ namespace PtProject.Loader
             }
             fval = (T)Convert.ChangeType(val, typeof(T));
             return fval;
+        }
+
+        /// <summary>
+        /// Id column by default skipped and can be multiply
+        /// </summary>
+        /// <param name="col"></param>
+        public void AddIdColumn(string col)
+        {
+            string ncol = col.ToLower();
+
+            if (!Ids.ContainsKey(ncol)) Ids.Add(ncol.ToLower(), 1);
+            AddSkipColumn(ncol);
+        }
+
+        public void AddIdsString(string ids)
+        {
+            string[] blocks = ids.Split(',');
+            foreach (string b in blocks)
+            {
+                if (string.IsNullOrWhiteSpace(b)) continue;
+                AddIdColumn(b);
+            }
+        }
+
+        /// <summary>
+        /// Target column by default skipped and can be only one
+        /// </summary>
+        /// <param name="col"></param>
+        public void AddTargetColumn(string col)
+        {
+            string ncol = col.ToLower();
+            TargetName = ncol;
+            AddSkipColumn(ncol);
+        }
+
+        public void AddSkipColumn(string col)
+        {
+            string ncol = col.ToLower();
+
+            if (string.IsNullOrWhiteSpace(ncol)) return;
+            if (!SkippedColumns.ContainsKey(ncol))
+                SkippedColumns.Add(ncol, 1);
+        }
+
+        public void RemoveSkipColumn(string col)
+        {
+            string ncol = col.ToLower();
+
+            if (string.IsNullOrWhiteSpace(ncol)) return;
+            if (SkippedColumns.ContainsKey(ncol))
+                SkippedColumns.Remove(ncol);
         }
     }
 }
