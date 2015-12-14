@@ -7,9 +7,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PtProject.Dependency", "PtP
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "libs", "libs", "{0D48DA2D-17CA-42AD-B312-8E8B5C91B266}"
 	ProjectSection(SolutionItems) = preProject
-		libs\alglibnet2.dll = libs\alglibnet2.dll
 		libs\libs.txt = libs\libs.txt
-		libs\LibSVM-1.6.3.dll = libs\LibSVM-1.6.3.dll
 		libs\MathNet.Numerics.dll = libs\MathNet.Numerics.dll
 	EndProjectSection
 EndProject
@@ -30,6 +28,10 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PtProject.Calc", "PtProject.Calc\PtProject.Calc.csproj", "{3DB1E42C-58D5-488F-92DE-BD48C347F16B}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PtProject.CategoryModifier", "PtProject.CategoryModifier\PtProject.CategoryModifier.csproj", "{52728596-1913-4788-9808-6D550038F72A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "alglib", "alglib\alglib.csproj", "{72312762-ACE2-4C6B-86B2-0FAF0B288A21}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LibSVM-1.6.3", "LibSVM\LibSVM-1.6.3.csproj", "{A16F23B5-FB62-499E-A831-26953AA56FE2}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -113,12 +115,28 @@ Global
 		{3DB1E42C-58D5-488F-92DE-BD48C347F16B}.Release|x64.Build.0 = Release|x64
 		{52728596-1913-4788-9808-6D550038F72A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{52728596-1913-4788-9808-6D550038F72A}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{52728596-1913-4788-9808-6D550038F72A}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{52728596-1913-4788-9808-6D550038F72A}.Debug|x64.Build.0 = Debug|Any CPU
+		{52728596-1913-4788-9808-6D550038F72A}.Debug|x64.ActiveCfg = Debug|x64
+		{52728596-1913-4788-9808-6D550038F72A}.Debug|x64.Build.0 = Debug|x64
 		{52728596-1913-4788-9808-6D550038F72A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{52728596-1913-4788-9808-6D550038F72A}.Release|Any CPU.Build.0 = Release|Any CPU
 		{52728596-1913-4788-9808-6D550038F72A}.Release|x64.ActiveCfg = Release|x64
 		{52728596-1913-4788-9808-6D550038F72A}.Release|x64.Build.0 = Release|x64
+		{72312762-ACE2-4C6B-86B2-0FAF0B288A21}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{72312762-ACE2-4C6B-86B2-0FAF0B288A21}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{72312762-ACE2-4C6B-86B2-0FAF0B288A21}.Debug|x64.ActiveCfg = Debug|x64
+		{72312762-ACE2-4C6B-86B2-0FAF0B288A21}.Debug|x64.Build.0 = Debug|x64
+		{72312762-ACE2-4C6B-86B2-0FAF0B288A21}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{72312762-ACE2-4C6B-86B2-0FAF0B288A21}.Release|Any CPU.Build.0 = Release|Any CPU
+		{72312762-ACE2-4C6B-86B2-0FAF0B288A21}.Release|x64.ActiveCfg = Release|x64
+		{72312762-ACE2-4C6B-86B2-0FAF0B288A21}.Release|x64.Build.0 = Release|x64
+		{A16F23B5-FB62-499E-A831-26953AA56FE2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A16F23B5-FB62-499E-A831-26953AA56FE2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A16F23B5-FB62-499E-A831-26953AA56FE2}.Debug|x64.ActiveCfg = Debug|x64
+		{A16F23B5-FB62-499E-A831-26953AA56FE2}.Debug|x64.Build.0 = Debug|x64
+		{A16F23B5-FB62-499E-A831-26953AA56FE2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A16F23B5-FB62-499E-A831-26953AA56FE2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A16F23B5-FB62-499E-A831-26953AA56FE2}.Release|x64.ActiveCfg = Release|x64
+		{A16F23B5-FB62-499E-A831-26953AA56FE2}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -71,7 +71,10 @@ namespace PtProject.Calc
 
                 using (var sw = new StreamWriter(new FileStream(dataPath + "_calc.csv", FileMode.Create, FileAccess.Write)))
                 {
-                    sw.WriteLine("id;prob;target");
+                    if (target!=null)
+                        sw.WriteLine("id;prob;target");
+                    else
+                        sw.WriteLine("id;prob");
 
                     int idx = 0;
                     // calculating prob for each row
@@ -88,7 +91,8 @@ namespace PtProject.Calc
                         var mvals = modifier.GetModifiedDataVector(vals);
                         var prob = cls.PredictProba(mvals);
 
-                        sw.WriteLine(row.Id + ";" + prob[1].ToString("F06") + ";" + row.Target);
+                        string targStr = target != null ? (";" + row.Target) : null;
+                        sw.WriteLine(row.Id + ";" + prob[1] + targStr);
 
                         if (idx % 12345 == 0)
                         {

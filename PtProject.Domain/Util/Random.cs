@@ -14,5 +14,28 @@ namespace PtProject.Domain.Util
         {
             return _rnd.NextDouble();
         }
+
+        public static int Next(int n)
+        {
+            return _rnd.Next(n);
+        }
+
+        public static double GetNormal(double mean, double stddev)
+        {
+            double u1 = _rnd.NextDouble();
+            double u2 = _rnd.NextDouble();
+
+            double randStdNormal = Math.Sqrt(-2.0 * Math.Log(u1)) * Math.Sin(2.0 * Math.PI * u2);
+            double randNormal = mean + stddev * randStdNormal;
+            return randNormal;
+        }
+
+        public static double GetTrangle()
+        {
+            double u1 = _rnd.NextDouble();
+            double u2 = _rnd.NextDouble();
+
+            return Math.Abs(u1 + u2);
+        }
     }
 }

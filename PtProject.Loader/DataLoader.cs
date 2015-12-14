@@ -28,27 +28,9 @@ namespace PtProject.Loader
         public Func<DataRow<T>, object> ProceedRowFunc;
 
         /// <summary>
-        /// Get all loaded rows
+        /// Targets values probability
         /// </summary>
-        /// <returns></returns>
-        public override List<DataRow<object>> GetRows()
-        {
-            var list = new List<DataRow<object>>();
-            foreach (var r in Rows)
-            {
-                list.Add((DataRow<object>)r);
-            }
-            return list;
-        }
-
-        /// <summary>
-        /// Template type, double by default
-        /// </summary>
-        /// <returns></returns>
-        public override Type GetItemType()
-        {
-            return typeof(T);
-        }
+        public Dictionary<T, double> TargetProb = new Dictionary<T, double>();
 
         /// <summary>
         /// Summary counts for target variable
@@ -270,6 +252,7 @@ namespace PtProject.Loader
                         if (MaxRowsLoaded != 0 && idx > MaxRowsLoaded) break;
                     }
 
+                    GetTargetProbs();
                     Logger.Log((idx - 1) + " lines loaded;");
                 }
             }
@@ -277,6 +260,23 @@ namespace PtProject.Loader
             {
                 Logger.Log(e);
                 throw e;
+            }
+        }
+
+        private void GetTargetProbs()
+        {
+            int allcnt = 0;
+
+            foreach (var key in TargetStat.Keys)
+            {
+                allcnt += TargetStat[key];
+            }
+
+            if (allcnt == 0) return;
+
+            foreach (var key in TargetStat.Keys)
+            {
+                TargetProb.Add(key, TargetStat[key]/(double)allcnt);
             }
         }
 
@@ -388,6 +388,29 @@ namespace PtProject.Loader
                 if (string.IsNullOrWhiteSpace(b)) continue;
                 AddIdColumn(b);
             }
+        }
+
+        /// <summary>
+        /// Get all loaded rows
+        /// </summary>
+        /// <returns></returns>
+        public override List<DataRow<object>> GetRows()
+        {
+            var list = new List<DataRow<object>>();
+            foreach (var r in Rows)
+            {
+                list.Add((DataRow<object>)r);
+            }
+            return list;
+        }
+
+        /// <summary>
+        /// Template type, double by default
+        /// </summary>
+        /// <returns></returns>
+        public override Type GetItemType()
+        {
+            return typeof(T);
         }
 
         /// <summary>

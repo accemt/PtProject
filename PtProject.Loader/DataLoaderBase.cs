@@ -6,6 +6,8 @@ namespace PtProject.Loader
 {
     public abstract class DataLoaderBase
     {
+        protected DataLoaderBase() {}
+
         /// <summary>
         /// column name by index in file
         /// </summary>

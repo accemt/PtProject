@@ -11,6 +11,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using FType = System.Double;
+using PtProject.Domain;
 
 namespace PtProject.Classifier
 {
@@ -18,17 +19,36 @@ namespace PtProject.Classifier
     {
         private DataLoader<FType> _trainLoader;
         private DataLoader<FType> _testLoader;
+
+        /// <summary>
+        /// Тестовые данные (на один идентификатор несколько массивов)
+        /// </summary>
         private Dictionary<string, List<double[]>> _testDataDict;
+
+        /// <summary>
+        /// результат тестовых данных: id -> target
+        /// </summary>
         private Dictionary<string, int> _resultDict;
+
+        /// <summary>
+        /// сюда сохраняем сумму глосований на тестовом множестве
+        /// </summary>
+        private Dictionary<string, double> _testProbSum = new Dictionary<string, double>(); 
+
+        /// <summary>
+        /// сюда сохраняем среднее глосований на тестовом множестве
+        /// </summary>
+        private Dictionary<string, double> _testProbAvg = new Dictionary<string, double>();
 
         private string _trainPath;
         private string _testPath;
         private string _target;
-        private double _rfcoeff = 0.01;
-        private int _ntrees = 1;
+        private double _rfcoeff = 0.05;
+        private int _nbatches = 100;
+        private int _treesbatch = 1;
         private int _nclasses = 2;
 
-        private Dictionary<int, alglib.decisionforest> _treesDict = new Dictionary<int, alglib.decisionforest>();
+        private Dictionary<int, DecisionForest> _treesDict = new Dictionary<int, DecisionForest>();
 
         
         /// <summary>
@@ -43,11 +63,19 @@ namespace PtProject.Classifier
             }
         }
 
-        public void SetRFParams(int ntrees, double r, int nclasses)
+        /// <summary>
+        /// Задание параметров random forest
+        /// </summary>
+        /// <param name="nbatches">общее количество классификаторов</param>
+        /// <param name="r">доля множества для посторения дерева</param>
+        /// <param name="nclasses">количентсво классов</param>
+        /// <param name="treesbatch">количентсво деревьев на один классификатор</param>
+        public void SetRFParams(int nbatches, double r, int nclasses, int treesbatch)
         {
-            _ntrees = ntrees;
+            _nbatches = nbatches;
             _rfcoeff = r;
             _nclasses = nclasses;
+            _treesbatch = treesbatch;
         }
 
         /// <summary>
@@ -82,6 +110,9 @@ namespace PtProject.Classifier
             _trainLoader.AddIdsString(ids);
             _trainLoader.Load(_trainPath);
 
+            foreach (var key in _trainLoader.TargetProb.Keys)
+                Logger.Log("prob[" + key.ToString("F0") + "] = " + _trainLoader.TargetProb[key].ToString("F06"));
+
             // loading test file
             foreach (var id in _trainLoader.Ids.Keys) // the same id's
                 _testLoader.AddIdColumn(id);
@@ -89,93 +120,57 @@ namespace PtProject.Classifier
             foreach (var col in _trainLoader.SkippedColumns.Keys) // the same columns
                 _testLoader.AddSkipColumn(col);
 
-            // loading
+            // loading test file
             _testLoader.Load(_testPath);
 
-            _testDataDict = new Dictionary<string, List<double[]>>(); // тестовые данные: id -> список строк на данный id
-            _resultDict = new Dictionary<string, int>(); // результат тестовых данных: id -> target
-
-            // модифицируем тестовые данные
-            foreach (var row in _testLoader.Rows)
-            {
-                // сохраняем результат
-                if (!_resultDict.ContainsKey(row.Id))
-                    _resultDict.Add(row.Id, Convert.ToInt32(row.Target));
-
-                // сохраняем ответ из бюро
-                var txy = new double[_testLoader.NVars];
-                for (int k = 0; k < _testLoader.NVars; k++)
-                {
-                    txy[k] = row.Coeffs[k];
-                }
-                if (!_testDataDict.ContainsKey(row.Id))
-                    _testDataDict.Add(row.Id, new List<double[]>());
-                _testDataDict[row.Id].Add(txy);
-            }
+            ModifyTestData();
         }
 
 
         /// <summary>
         /// build and test classifier
         /// </summary>
-        public ClassifierResult Build(bool savetree=false)
+        public ClassifierResult Build(bool savetrees=false, bool boost=false)
         {
-            var probSum = new Dictionary<string, double>(); // сюда сохраняем сумму
-            var probAvg = new Dictionary<string, double>(); // сюда сохраняем среднее
-            var rlist = new RocItem[_resultDict.Count]; // массив для оценки результата
-
+            Clear();
             var ret = new ClassifierResult();
-            _treesDict.Clear();
+            
+            int rowsCnt = _trainLoader.TotalDataLines;
+            int varsCnt = _trainLoader.NVars;
 
-            for (int i = 0; i < _ntrees; i++)
+            for (int i = 0; i < _nbatches; i++)
             {
-                // создаем дерево
-                var tree = CreateTree(_trainLoader, 1);
-                if (savetree)
+                // создаем классификатор
+                var cls = CreateBatch();
+                if (savetrees)
                 {
-                    SerializeTree(tree, i); // сохраняем на диск
-                    _treesDict.Add(i, tree);
+                    // сохраняем
+                    SerializeTree(cls, i);
+                    _treesDict.Add(i, cls);
                 }
 
-                // получаем результат по одному дереву
-                var result = GetClassificationResult(tree);
-
-                // сохраняем общую сумму вероятностей по идентификатору
-                foreach (string id in result.Keys)
+                var trainDiffs = new Dictionary<int, double>();
+                double sumErr = 0;
+                for (int k = 0; k < rowsCnt; k++)
                 {
-                    if (!probSum.ContainsKey(id))
-                        probSum.Add(id, 0);
-
-                    probSum[id] += result[id];
+                    var crow = new double[varsCnt];
+                    for (int l = 0; l < varsCnt; l++)
+                    {
+                        crow[l] = _trainLoader.LearnRows[k, l];
+                    }
+                    var cres = PredictProba(crow);
+                    double targ = _trainLoader.LearnRows[k, varsCnt];
+                    double diff = Math.Abs(cres[1] - targ);
+                    sumErr += diff;
+                    trainDiffs.Add(k, diff);
                 }
 
-                // сохраняем cреднее вероятностей по идентификатору
-                foreach (string id in result.Keys)
-                {
-                    if (!probAvg.ContainsKey(id))
-                        probAvg.Add(id, 0);
+                Logger.Log("summary error = " + sumErr);
 
-                    probAvg[id] = probSum[id] / (i + 1);
-                }
-
-                // находим статистики классификации
-                int idx = 0;
-                foreach (string id in result.Keys)
-                {
-                    if (rlist[idx] == null) rlist[idx] = new RocItem();
-
-                    rlist[idx].Prob = probAvg[id]; // среднее по наблюдениям
-                    rlist[idx].Target = _resultDict[id];
-                    rlist[idx].Predicted = 0;
-
-                    idx++;
-                }
-                Array.Sort(rlist, (o1, o2) => (1 - o1.Prob).CompareTo(1 - o2.Prob));
-                var clsRes = ResultCalc.GetResult(rlist, 0.05);
-
-                Logger.Log("n=" + _testLoader.Rows[0].Coeffs.Count()+ " d=" + _rfcoeff + " tree=" + (i + 1) + " ok; AUC=" + clsRes.AUC.ToString("F04"));
-
-                ret.AddStepResult(clsRes,i);
+                // расчитываем метрики для тестового множества
+                var clsRes = GetTestSetMetrics(cls, i + 1);
+                ret.AddStepResult(clsRes, i);
+                Logger.Log("n=" + varsCnt + " d=" + _rfcoeff + " batch=" + (i + 1) + " ok; AUC=" + clsRes.AUC.ToString("F04"));
             }
 
             return ret;
@@ -195,8 +190,8 @@ namespace PtProject.Classifier
             {
                 var tree = _treesDict[id];
                 var sy = new double[_nclasses];
-                alglib.dfprocess(tree, sarr, ref sy);
-                for (int i=0;i<sy.Length;i++)
+                alglib.dfprocess(tree.AlglibForest, sarr, ref sy);
+                for (int i = 0; i < sy.Length; i++)
                     y[i] += sy[i];
             }
 
@@ -209,10 +204,91 @@ namespace PtProject.Classifier
             return y;
         }
 
-        private Dictionary<string, double> GetClassificationResult(alglib.decisionforest tree)
+        private void ModifyTestData()
         {
-            // пробегаем по всем клиентски данным и сохраняем результат
+            _testDataDict = new Dictionary<string, List<double[]>>(); // тестовые данные: id -> список строк на данный id
+            _resultDict = new Dictionary<string, int>(); // результат тестовых данных: id -> target
+
+            // модифицируем тестовые данные
+            foreach (var row in _testLoader.Rows)
+            {
+                // сохраняем результат
+                if (!_resultDict.ContainsKey(row.Id))
+                    _resultDict.Add(row.Id, Convert.ToInt32(row.Target));
+
+                // сохраняем даные расчета
+                var txy = new double[_testLoader.NVars];
+                for (int k = 0; k < _testLoader.NVars; k++)
+                {
+                    txy[k] = row.Coeffs[k];
+                }
+                if (!_testDataDict.ContainsKey(row.Id))
+                    _testDataDict.Add(row.Id, new List<double[]>());
+                _testDataDict[row.Id].Add(txy);
+            }
+        }
+
+        /// <summary>
+        /// Расчет метрик качества классификации на тестовом множестве для очередного классификатора
+        /// </summary>
+        /// <param name="cnt"></param>
+        /// <param name="cls"></param>
+        /// <returns></returns>
+        private FinalFuncResult GetTestSetMetrics(DecisionForest cls, double cnt)
+        {
+            var rlist = new RocItem[_resultDict.Count]; // массив для оценки результата
+
+            // получаем результат по одному классификатору
+            var result = GetTestClassificationResult(cls);
+
+            // сохраняем общую сумму вероятностей по идентификатору
+            // т.е. добавляем результат от очередного классификатора
+            foreach (string id in result.Keys)
+            {
+                if (!_testProbSum.ContainsKey(id))
+                    _testProbSum.Add(id, 0);
+
+                _testProbSum[id] += result[id];
+            }
+
+            // находим cреднее вероятностей по идентификатору
+            foreach (string id in result.Keys)
+            {
+                if (!_testProbAvg.ContainsKey(id))
+                    _testProbAvg.Add(id, 0);
+
+                _testProbAvg[id] = _testProbSum[id] / cnt;
+            }
+
+            // находим статистики классификации
+            int idx = 0;
+            foreach (string id in result.Keys)
+            {
+                if (rlist[idx] == null) rlist[idx] = new RocItem();
+
+                rlist[idx].Prob = _testProbAvg[id]; // среднее по наблюдениям
+                rlist[idx].Target = _resultDict[id];
+                //rlist[idx].Predicted = _testProbAvg[id] > _trainLoader.TargetProb[1] ? 1 : 0;
+                rlist[idx].Predicted = _testProbAvg[id] > 0.5 ? 1 : 0;
+
+                idx++;
+            }
+            Array.Sort(rlist, (o1, o2) => (1 - o1.Prob).CompareTo(1 - o2.Prob));
+            var clsRes = ResultCalc.GetResult(rlist, 0.05);
+            return clsRes;
+        }
+
+        /// <summary>
+        /// Расчет классификации по тестовому множеству на одном классификаторе
+        /// ипользуется в GetTestSetMetrics
+        /// </summary>
+        /// <param name="cls">current classifier</param>
+        /// <returns></returns>
+        private Dictionary<string, double> GetTestClassificationResult(DecisionForest cls)
+        {
             var probDictList = new Dictionary<string, Dictionary<int, double>>();
+
+            // пробегаем по всем клиентски данным и сохраняем результат
             foreach (string id in _testDataDict.Keys)
             {
                 if (!probDictList.ContainsKey(id))
@@ -221,7 +297,7 @@ namespace PtProject.Classifier
                 foreach (var sarr in _testDataDict[id])
                 {
                     var y = new double[_nclasses];
-                    alglib.dfprocess(tree, sarr, ref y);
+                    alglib.dfprocess(cls.AlglibForest, sarr, ref y);
 
                     double prob = y[1];
                     int kmax = probDictList[id].Keys.Count == 0 ? 0 : probDictList[id].Keys.Max() + 1;
@@ -229,7 +305,7 @@ namespace PtProject.Classifier
                 }
             }
 
-            // вероятность дефолта определяется как среднее по записям для клиента
+            // вероятность определяется как среднее по записям для клиента
             var probDict = new Dictionary<string, double>();
             foreach (var id in probDictList.Keys)
             {
@@ -247,23 +323,30 @@ namespace PtProject.Classifier
             return probDict;
         }
 
-        private alglib.decisionforest CreateTree(DataLoader<FType> loader, int cnt)
+        /// <summary>
+        /// Creates one classifier (batch of trees)
+        /// </summary>
+        /// <returns></returns>
+        private DecisionForest CreateBatch()
         {
+            var tree = new DecisionForest();
             alglib.decisionforest df;
 
-            int npoints = loader.TotalDataLines;
+            int npoints = _trainLoader.TotalDataLines;
+            int nvars = _trainLoader.NVars;
             int info;
-            double[,] xy = loader.LearnRows;
+            double[,] xy = _trainLoader.LearnRows;
 
             alglib.dfreport rep;
-            int nvars = loader.NVars;
+            alglib.dfbuildrandomdecisionforest(xy, npoints, nvars, _nclasses, _treesbatch, _rfcoeff, out info, out df, out rep);
 
-            alglib.dfbuildrandomdecisionforest(xy, npoints, nvars, _nclasses, cnt, _rfcoeff, out info, out df, out rep);
+            tree.AlglibForest = df;
+            xy = null;
 
-            return df;
+            return tree;
         }
 
-        private void SerializeTree(alglib.decisionforest tree, int i)
+        private void SerializeTree(DecisionForest tree, int i)
         {
             string treesDir = Environment.CurrentDirectory + "\\trees";
             if (!Directory.Exists(treesDir))
@@ -271,13 +354,11 @@ namespace PtProject.Classifier
             var dinfo = new DirectoryInfo(treesDir);
 
             var fs = new FileStream(dinfo.FullName + "\\" + "tree_" + string.Format("{0:0000.#}", i) + ".dmp", FileMode.Create, FileAccess.Write);
-            string serstr;
-            alglib.dfserialize(tree, out serstr);
 
             var formatter = new BinaryFormatter();
             try
             {
-                formatter.Serialize(fs, serstr);
+                formatter.Serialize(fs, tree);
             }
             catch (SerializationException e)
             {
@@ -289,16 +370,15 @@ namespace PtProject.Classifier
             }
         }
 
-        private alglib.decisionforest DeserializeTree(string path)
+        private DecisionForest DeserializeTree(string path)
         {
             var fs = new FileStream(path, FileMode.Open, FileAccess.Read);
             var formatter = new BinaryFormatter();
-            alglib.decisionforest tree=null;
+            DecisionForest tree = null;
 
             try
             {
-                string serstr = (string)formatter.Deserialize(fs);
-                alglib.dfunserialize(serstr, out tree);
+                tree = (DecisionForest)formatter.Deserialize(fs);
             }
             catch (SerializationException e)
             {
@@ -353,7 +433,7 @@ namespace PtProject.Classifier
 
         public ClassifierResult Build()
         {
-            return Build(false);
+            return Build(false, false);
         }
 
         public FType[] PredictProba(FType[] sarr)

@@ -22,7 +22,7 @@ namespace PtProject.Domain.Util
                 if (appSettings["LoggerEnable"] != null)
                     Enabled = bool.Parse(appSettings["LoggerEnable"]);
             }
-            catch (Exception e)
+            catch (Exception)
             {
             }
         }
