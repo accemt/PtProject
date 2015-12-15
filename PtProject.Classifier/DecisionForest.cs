@@ -10,6 +10,5 @@ namespace PtProject.Classifier
     public class DecisionForest
     {
         public alglib.decisionforest Forest { get; set; }
-        public double? Coeff;
     }
 }

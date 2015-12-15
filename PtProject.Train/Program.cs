@@ -2,6 +2,7 @@
 using PtProject.Domain.Util;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -60,7 +61,7 @@ namespace PtProject.Train
             string ids = args.Length >= 4 ? args[3] : ",";
             int ntrees = int.Parse(args.Length >= 5 ? args[4] : "300");
             double d = double.Parse(args.Length >= 6 ? args[5] : "0.07");
-            int treesbatch = 10;
+            int treesbatch = 1;
 
             Logger.Log("train = " + trainPath);
             Logger.Log("test = " + testPath);
