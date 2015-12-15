@@ -32,8 +32,8 @@ namespace PtProject.Domain.Util
 
         public static double GetTrangle()
         {
-            double u1 = _rnd.NextDouble();
-            double u2 = _rnd.NextDouble();
+            double u1 = _rnd.NextDouble()-0.5;
+            double u2 = _rnd.NextDouble()-0.5;
 
             return Math.Abs(u1 + u2);
         }

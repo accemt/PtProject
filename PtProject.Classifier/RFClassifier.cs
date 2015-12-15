@@ -21,9 +21,9 @@ namespace PtProject.Classifier
         private DataLoader<FType> _testLoader;
 
         /// <summary>
-        /// Тестовые данные (на один идентификатор несколько массивов)
+        /// Тестовые данные
         /// </summary>
-        private Dictionary<string, List<double[]>> _testDataDict;
+        private Dictionary<string, FType[]> _testDataDict;
 
         /// <summary>
         /// результат тестовых данных: id -> target
@@ -45,10 +45,12 @@ namespace PtProject.Classifier
         private string _target;
         private double _rfcoeff = 0.05;
         private int _nbatches = 100;
+        private int _nb = 0;
         private int _treesbatch = 1;
         private int _nclasses = 2;
+        private int[] _indexes = null;
 
-        private Dictionary<int, DecisionForest> _treesDict = new Dictionary<int, DecisionForest>();
+        private SortedDictionary<int, DecisionForest> _forestDict = new SortedDictionary<int, DecisionForest>();
 
         
         /// <summary>
@@ -138,42 +140,136 @@ namespace PtProject.Classifier
             int rowsCnt = _trainLoader.TotalDataLines;
             int varsCnt = _trainLoader.NVars;
 
-            for (int i = 0; i < _nbatches; i++)
+            // создаем первый классификатор
+            _nb = 1;
+            var cls = CreateForest();
+            if (savetrees)
             {
-                // создаем классификатор
-                var cls = CreateBatch();
+                // сохраняем
+                SerializeTree(cls, 0);
+                _forestDict.Add(0, cls);
+            }
+
+            // расчитываем метрики для тестового множества
+            var clsRes = GetTestSetMetrics(cls);
+            ret.AddStepResult(clsRes, 0);
+            Logger.Log("n=" + varsCnt + " d=" + _rfcoeff + " batch=" + (0 + 1) + " ok; AUC=" + clsRes.AUC.ToString("F04"));
+
+            for (int i = 1; i < _nbatches; i++)
+            {
+                _nb = i + 1; // batch num
+
+                // перестраиваем индексы плохо классифицированных объектов (плохие сначала)
+                RefreshIndexes(rowsCnt, varsCnt);
+
+                // строим классификаторы и выбираем лучший
+                DecisionForest maxForest = null;
+                double maxMetric = 0;
+                for (int k = 0; k < 10; k++)
+                {
+                    var scls = CreateForest(true);
+                    // расчитываем метрики для тестового множества
+                    var sres = GetTestSetMetrics(scls, true);
+                    Logger.Log("sub cls #" + k + " auc=" + sres.AUC.ToString("F04"));
+
+                    if (sres.AUC > maxMetric)
+                    {
+                        maxMetric = sres.AUC;
+                        maxForest = scls;
+                    }
+                }
+
+                maxForest.Coeff = GetBestMetricsCoeff(maxForest);
+
+                var nClsRes = GetTestSetMetrics(maxForest);
                 if (savetrees)
                 {
                     // сохраняем
-                    SerializeTree(cls, i);
-                    _treesDict.Add(i, cls);
+                    SerializeTree(maxForest, i);
+                    _forestDict.Add(i, maxForest);
                 }
-
-                var trainDiffs = new Dictionary<int, double>();
-                double sumErr = 0;
-                for (int k = 0; k < rowsCnt; k++)
-                {
-                    var crow = new double[varsCnt];
-                    for (int l = 0; l < varsCnt; l++)
-                    {
-                        crow[l] = _trainLoader.LearnRows[k, l];
-                    }
-                    var cres = PredictProba(crow);
-                    double targ = _trainLoader.LearnRows[k, varsCnt];
-                    double diff = Math.Abs(cres[1] - targ);
-                    sumErr += diff;
-                    trainDiffs.Add(k, diff);
-                }
-
-                Logger.Log("summary error = " + sumErr);
-
-                // расчитываем метрики для тестового множества
-                var clsRes = GetTestSetMetrics(cls, i + 1);
-                ret.AddStepResult(clsRes, i);
-                Logger.Log("n=" + varsCnt + " d=" + _rfcoeff + " batch=" + (i + 1) + " ok; AUC=" + clsRes.AUC.ToString("F04"));
+                ret.AddStepResult(nClsRes, i);
+                Logger.Log("n=" + varsCnt + " d=" + _rfcoeff + " batch=" + (i + 1) + " ok; AUC=" + nClsRes.AUC.ToString("F04"));
             }
 
             return ret;
+        }
+
+        private void RefreshIndexes(int rowsCnt, int varsCnt)
+        {
+            // находим разницы между реальными значениями и прогнозными в train-set
+            var trainDiffs = new Dictionary<int, double>();
+            double sumErr = 0;
+            var rlist = new RocItem[rowsCnt]; // массив для оценки результата
+
+            for (int k = 0; k < rowsCnt; k++)
+            {
+                var crow = new double[varsCnt];
+                for (int l = 0; l < varsCnt; l++)
+                {
+                    crow[l] = _trainLoader.LearnRows[k, l];
+                }
+                var cres = PredictProba(crow);
+
+                double targ = _trainLoader.LearnRows[k, varsCnt];
+                double diff = Math.Abs(cres[1] - targ);
+                sumErr += diff;
+                trainDiffs.Add(k, diff);
+
+                rlist[k] = new RocItem();
+                rlist[k].Prob = cres[1];
+                rlist[k].Target = (int)targ;
+                rlist[k].Predicted = cres[1] > 0.5 ? 1 : 0;
+            }
+
+            Array.Sort(rlist, (o1, o2) => (1 - o1.Prob).CompareTo(1 - o2.Prob));
+            var clres = ResultCalc.GetResult(rlist, 0.05);
+
+            Logger.Log("cl auc=" + clres.AUC.ToString("F06") + " loss=" + clres.LogLoss.ToString("F06"));
+
+            // сосавляем массив индексов (сначала - плохо классифицированные)
+            var sarr = trainDiffs.OrderByDescending(t => t.Value).ToArray();
+            _indexes = new int[rowsCnt];
+            for (int k = 0; k < rowsCnt; k++)
+            {
+                _indexes[k] = sarr[k].Key;
+            }
+        }
+
+        private FType GetBestMetricsCoeff(DecisionForest maxForest)
+        {
+            double best = 0;
+            double fmax = 0;
+            var clsData = GetTestClassificationResult(maxForest);
+
+            for (double d = 0.001; d < 1; d += 0.001)
+            {
+                var rlist = new RocItem[_resultDict.Count]; // массив для оценки результата
+
+                int idx = 0;
+                foreach (string id in clsData.Keys)
+                {
+                    if (rlist[idx] == null) rlist[idx] = new RocItem();
+
+                    rlist[idx].Prob = _testProbAvg[id] * (1 - d) + clsData[id] * d;
+                    rlist[idx].Target = _resultDict[id];
+                    rlist[idx].Predicted = clsData[id] > 0.5 ? 1 : 0;
+
+                    idx++;
+                }
+                Array.Sort(rlist, (o1, o2) => (1 - o1.Prob).CompareTo(1 - o2.Prob));
+                var cres = ResultCalc.GetResult(rlist, 0.05);
+
+                if (cres.AUC > fmax)
+                {
+                    fmax = cres.AUC;
+                    best = d;
+                }
+            }
+
+            Logger.Log("dc=" + best.ToString("F03") + " auc=" + fmax.ToString("F04"));
+
+            return best;
         }
 
         /// <summary>
@@ -184,18 +280,28 @@ namespace PtProject.Classifier
         public double[] PredictProba(double[] sarr, bool devide=true)
         {
             var y = new double[_nclasses];
-            int cnt = _treesDict.Keys.Count();
+            int cnt = _forestDict.Keys.Count();
+            bool isboost = false;
 
-            foreach (var id in _treesDict.Keys)
+            foreach (var id in _forestDict.Keys)
             {
-                var tree = _treesDict[id];
-                var sy = new double[_nclasses];
-                alglib.dfprocess(tree.AlglibForest, sarr, ref sy);
-                for (int i = 0; i < sy.Length; i++)
-                    y[i] += sy[i];
+                var forest = _forestDict[id];
+                var sy = PredictProba(forest, sarr);
+
+                if (forest.Coeff != null)
+                {
+                    if (!isboost) isboost = true;
+                    for (int i = 0; i < sy.Length; i++)
+                        y[i] = y[i] * (1 - forest.Coeff.Value) + sy[i] * forest.Coeff.Value;
+                }
+                else
+                {
+                    for (int i = 0; i < sy.Length; i++)
+                        y[i] += sy[i];
+                }
             }
 
-            if (devide)
+            if (devide && !isboost)
             {
                 for (int i = 0; i < y.Length; i++)
                     y[i] /= cnt;
@@ -204,9 +310,17 @@ namespace PtProject.Classifier
             return y;
         }
 
+        public double[] PredictProba(DecisionForest forest, double[] sarr)
+        {
+            var sy = new double[_nclasses];
+            alglib.dfprocess(forest.Forest, sarr, ref sy);
+
+            return sy;
+        }
+
         private void ModifyTestData()
         {
-            _testDataDict = new Dictionary<string, List<double[]>>(); // тестовые данные: id -> список строк на данный id
+            _testDataDict = new Dictionary<string, FType[]>(); // тестовые данные: id -> список строк на данный id
             _resultDict = new Dictionary<string, int>(); // результат тестовых данных: id -> target
 
             // модифицируем тестовые данные
@@ -216,27 +330,31 @@ namespace PtProject.Classifier
                 if (!_resultDict.ContainsKey(row.Id))
                     _resultDict.Add(row.Id, Convert.ToInt32(row.Target));
 
-                // сохраняем даные расчета
-                var txy = new double[_testLoader.NVars];
-                for (int k = 0; k < _testLoader.NVars; k++)
-                {
-                    txy[k] = row.Coeffs[k];
-                }
-                if (!_testDataDict.ContainsKey(row.Id))
-                    _testDataDict.Add(row.Id, new List<double[]>());
-                _testDataDict[row.Id].Add(txy);
+                // сохраняем даные для расчета
+                _testDataDict.Add(row.Id, row.Coeffs);
             }
         }
 
         /// <summary>
-        /// Расчет метрик качества классификации на тестовом множестве для очередного классификатора
+        /// Полный расчет метрик качества классификации на тестовом множестве
+        /// для очередного классификатора
         /// </summary>
-        /// <param name="cnt"></param>
+        /// <param name="batchnum"></param>
         /// <param name="cls"></param>
+        /// <param name="accumulate"></param>
         /// <returns></returns>
-        private FinalFuncResult GetTestSetMetrics(DecisionForest cls, double cnt)
+        private FinalFuncResult GetTestSetMetrics(DecisionForest cls, bool isolated=false)
         {
             var rlist = new RocItem[_resultDict.Count]; // массив для оценки результата
+
+            Dictionary<string, double> testProbSum = _testProbSum;
+            Dictionary<string, double> testProbAvg = _testProbAvg;
+
+            if (isolated)
+            {
+                testProbSum = new Dictionary<string, FType>();
+                testProbAvg = new Dictionary<string, FType>();
+            }
 
             // получаем результат по одному классификатору
             var result = GetTestClassificationResult(cls);
@@ -245,19 +363,35 @@ namespace PtProject.Classifier
             // т.е. добавляем результат от очередного классификатора
             foreach (string id in result.Keys)
             {
-                if (!_testProbSum.ContainsKey(id))
-                    _testProbSum.Add(id, 0);
+                if (!testProbSum.ContainsKey(id))
+                    testProbSum.Add(id, 0);
 
-                _testProbSum[id] += result[id];
+                if (cls.Coeff == null)
+                    testProbSum[id] += result[id];
+                else
+                    testProbSum[id] = testProbSum[id] * (1 - cls.Coeff.Value) + result[id] * cls.Coeff.Value;
             }
 
-            // находим cреднее вероятностей по идентификатору
-            foreach (string id in result.Keys)
-            {
-                if (!_testProbAvg.ContainsKey(id))
-                    _testProbAvg.Add(id, 0);
 
-                _testProbAvg[id] = _testProbSum[id] / cnt;
+            if (cls.Coeff == null)
+            {
+                // не-boost метод, надо делить
+                foreach (var id in _testProbSum.Keys)
+                {
+                    if (!testProbAvg.ContainsKey(id))
+                        testProbAvg.Add(id, 0);
+                    testProbAvg[id] = testProbSum[id] / (isolated ? 1 : _nb);
+                }
+            }
+            else
+            {
+                // не делим, работает коэффициент
+                foreach (var id in _testProbSum.Keys)
+                {
+                    if (!testProbAvg.ContainsKey(id))
+                        testProbAvg.Add(id, 0);
+                    testProbAvg[id] = testProbSum[id];
+                }
             }
 
             // находим статистики классификации
@@ -266,10 +400,10 @@ namespace PtProject.Classifier
             {
                 if (rlist[idx] == null) rlist[idx] = new RocItem();
 
-                rlist[idx].Prob = _testProbAvg[id]; // среднее по наблюдениям
+                rlist[idx].Prob = testProbAvg[id]; // среднее по наблюдениям
                 rlist[idx].Target = _resultDict[id];
-                //rlist[idx].Predicted = _testProbAvg[id] > _trainLoader.TargetProb[1] ? 1 : 0;
-                rlist[idx].Predicted = _testProbAvg[id] > 0.5 ? 1 : 0;
+                //rlist[idx].Predicted = testProbAvg[id] > _trainLoader.TargetProb[1] ? 1 : 0;
+                rlist[idx].Predicted = testProbAvg[id] > 0.5 ? 1 : 0;
 
                 idx++;
             }
@@ -282,42 +416,18 @@ namespace PtProject.Classifier
         /// Расчет классификации по тестовому множеству на одном классификаторе
         /// ипользуется в GetTestSetMetrics
         /// </summary>
-        /// <param name="cls">current classifier</param>
-        /// <returns></returns>
+        /// <param name="cls"></param>
+        /// <returns>вероятности целевой</returns>
         private Dictionary<string, double> GetTestClassificationResult(DecisionForest cls)
         {
-            var probDictList = new Dictionary<string, Dictionary<int, double>>();
+            var probDict = new Dictionary<string, double>();
 
             // пробегаем по всем клиентски данным и сохраняем результат
             foreach (string id in _testDataDict.Keys)
             {
-                if (!probDictList.ContainsKey(id))
-                    probDictList.Add(id, new Dictionary<int, double>());
-
-                foreach (var sarr in _testDataDict[id])
-                {
-                    var y = new double[_nclasses];
-                    alglib.dfprocess(cls.AlglibForest, sarr, ref y);
-
-                    double prob = y[1];
-                    int kmax = probDictList[id].Keys.Count == 0 ? 0 : probDictList[id].Keys.Max() + 1;
-                    probDictList[id].Add(kmax, prob);
-                }
-            }
-
-            // вероятность определяется как среднее по записям для клиента
-            var probDict = new Dictionary<string, double>();
-            foreach (var id in probDictList.Keys)
-            {
-                int cnt = probDictList[id].Keys.Count();
-                double prob = 0;
-                foreach (var d in probDictList[id].Keys)
-                {
-                    prob += probDictList[id][d];
-                }
-
+                var y = PredictProba(cls, _testDataDict[id]);
                 if (!probDict.ContainsKey(id))
-                    probDict.Add(id, prob / cnt);
+                    probDict.Add(id, y[1]);
             }
 
             return probDict;
@@ -327,7 +437,7 @@ namespace PtProject.Classifier
         /// Creates one classifier (batch of trees)
         /// </summary>
         /// <returns></returns>
-        private DecisionForest CreateBatch()
+        private DecisionForest CreateForest(bool useidx=false)
         {
             var tree = new DecisionForest();
             alglib.decisionforest df;
@@ -335,12 +445,30 @@ namespace PtProject.Classifier
             int npoints = _trainLoader.TotalDataLines;
             int nvars = _trainLoader.NVars;
             int info;
+            double coeff = _rfcoeff;
             double[,] xy = _trainLoader.LearnRows;
 
-            alglib.dfreport rep;
-            alglib.dfbuildrandomdecisionforest(xy, npoints, nvars, _nclasses, _treesbatch, _rfcoeff, out info, out df, out rep);
+            if (useidx)
+            {
+                coeff = 1;
+                npoints = (int)(npoints * _rfcoeff);
+                double[,] nxy = new double[npoints, nvars + 1];
+                for (int i = 0; i < npoints; i++)
+                {
+                    int sn = (int)(Domain.Util.RandomGen.GetTrangle() * npoints);
+                    int sidx = _indexes[sn];
+                    for (int j = 0; j < nvars + 1; j++)
+                    {
+                        nxy[i, j] = xy[sidx, j];
+                    }
+                }
+                xy = nxy;
+            }
 
-            tree.AlglibForest = df;
+            alglib.dfreport rep;
+            alglib.dfbuildrandomdecisionforest(xy, npoints, nvars, _nclasses, _treesbatch, coeff, out info, out df, out rep);
+
+            tree.Forest = df;
             xy = null;
 
             return tree;
@@ -408,7 +536,7 @@ namespace PtProject.Classifier
                 return 0;
             }
             var dinfo = new DirectoryInfo(treesDir);
-            _treesDict.Clear();
+            _forestDict.Clear();
 
             int idx = 0;
             var files = dinfo.GetFiles().OrderBy(f => f.Name).ToArray();
@@ -419,7 +547,7 @@ namespace PtProject.Classifier
             foreach (var finfo in files)
             {
                 var tree = DeserializeTree(finfo.FullName);
-                _treesDict.Add(idx++, tree);
+                _forestDict.Add(idx++, tree);
                 Logger.Log(finfo.Name + " loaded;");
             }
             Logger.Log("all trees loaded;");
@@ -428,7 +556,7 @@ namespace PtProject.Classifier
 
         public void Clear()
         {
-            _treesDict.Clear();
+            _forestDict.Clear();
         }
 
         public ClassifierResult Build()

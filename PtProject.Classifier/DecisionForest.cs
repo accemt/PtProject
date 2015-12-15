@@ -9,6 +9,7 @@ namespace PtProject.Classifier
     [Serializable]
     public class DecisionForest
     {
-        public alglib.decisionforest AlglibForest { get; set; }
+        public alglib.decisionforest Forest { get; set; }
+        public double? Coeff;
     }
 }

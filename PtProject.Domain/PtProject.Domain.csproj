@@ -69,7 +69,7 @@
     <Compile Include="StatItem.cs" />
     <Compile Include="TupleData.cs" />
     <Compile Include="Util\Logger.cs" />
-    <Compile Include="Util\Random.cs" />
+    <Compile Include="Util\RandomGen.cs" />
     <Compile Include="Util\ResultCalc.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
