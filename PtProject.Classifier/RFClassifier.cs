@@ -62,7 +62,7 @@ namespace PtProject.Classifier
         private double RFCoeff = 0.05;
         private int Nbatches = 100;
         private int TreesInBatch = 1;
-        private int TreesBruteForce = 10;
+        private int TreesBruteForce = 12;
         private int TreesInFirstStep = 1;
         private int[] _indexes = null;
 
@@ -157,7 +157,7 @@ namespace PtProject.Classifier
             // создаем первые классификаторы
             for (int i = 0; i < TreesInFirstStep; i++)
             {
-                var cls = CreateClassifier();
+                var cls = CreateClassifier(useidx: false, parallel: true);
                 if (savetrees) cls.Serialize();
 
                 // расчитываем метрики для тестового и обучающего множества
@@ -179,15 +179,11 @@ namespace PtProject.Classifier
                     // перестраиваем индексы плохо классифицированных объектов (плохие сначала)
                     RefreshIndexes();
 
-                    // строим классификаторы и выбираем лучший
-                    var source = Enumerable.Range(1, TreesBruteForce);
-                    var clsList = (from n in source.AsParallel() select CreateClassifier(true)).ToList();
-
                     double maxMetric = 0;
-                    int cn = 0;
-                    foreach (var scls in clsList)
+                    // строим классификаторы и выбираем лучший
+                    for (int k=0;k< TreesBruteForce;k++)
                     {
-                        cn++;
+                        var scls = CreateClassifier(useidx: true, parallel: true);
 
                         // расчитываем метрики для тестового множества
                         var sres = GetTrainClassificationCounts(scls);
@@ -200,7 +196,7 @@ namespace PtProject.Classifier
                         {
                             if (rlist[idx] == null) rlist[idx] = new RocItem();
 
-                            rlist[idx].Prob = sres[id]/cnt; // среднее по наблюдениям
+                            rlist[idx].Prob = sres[id] / cnt; // среднее по наблюдениям
                             rlist[idx].Target = _trainResult[id];
                             rlist[idx].Predicted = sres[id] > 0.5 ? 1 : 0;
 
@@ -209,7 +205,7 @@ namespace PtProject.Classifier
                         Array.Sort(rlist, (o1, o2) => (1 - o1.Prob).CompareTo(1 - o2.Prob));
                         var clsRes = ResultCalc.GetResult(rlist, 0.05);
 
-                        Logger.Log("sub cls #" + cn + " auc=" + clsRes.AUC.ToString("F10"));
+                        Logger.Log("sub cls #" + k + " auc=" + clsRes.AUC.ToString("F10"));
 
                         if (clsRes.AUC > maxMetric)
                         {
@@ -220,7 +216,7 @@ namespace PtProject.Classifier
                 }
                 else
                 {
-                    maxForest = CreateClassifier();
+                    maxForest = CreateClassifier(useidx: false, parallel: true);
                 }
 
 
@@ -230,7 +226,7 @@ namespace PtProject.Classifier
 
                 ret.AddStepResult(testRes, i);
                 Logger.Log("batch=" + i + " ok; test AUC=" + testRes.AUC.ToString("F10") + "; train AUC=" + trainRes.AUC.ToString("F10"));
-                }
+            }
 
             return ret;
         }
@@ -402,7 +398,7 @@ namespace PtProject.Classifier
         /// Creates one classifier (batch of trees)
         /// </summary>
         /// <returns></returns>
-        private DecisionForestClassifier CreateClassifier(bool useidx=false)
+        private DecisionForestClassifier CreateClassifier(bool useidx=false, bool parallel=false)
         {
             int npoints = _trainLoader.TotalDataLines;
             int nvars = _trainLoader.NVars;
@@ -410,33 +406,21 @@ namespace PtProject.Classifier
             double[,] xy = _trainLoader.LearnRows;
             var classifier = new DecisionForestClassifier();
 
-            if (useidx)
-            {
-                // in boost mode using indexes to create xy train set
-                for (int t = 0; t < TreesInBatch; t++)
-                {
-                    npoints = (int)(npoints * RFCoeff);
-                    double[,] nxy = new double[npoints, nvars + 1];
-                    for (int i = 0; i < npoints; i++)
-                    {
-                        int sn = (int)(RandomGen.GetTrangle() * npoints);
-                        int sidx = _indexes[sn];
-                        for (int j = 0; j < nvars + 1; j++)
-                            nxy[i, j] = xy[sidx, j];
-                    }
 
-                    var tree = DecisionTree.CreateTree(nxy, npoints, nvars, _nclasses, 1);
-                    classifier.AddTree(tree);
-                }
-            }
+            IEnumerable<int> source = Enumerable.Range(1, TreesInBatch);
+            List<DecisionTree> treeList = null;
+
+            if (parallel)
+                treeList = (from n in source.AsParallel()
+                            select DecisionTree.CreateTree(useidx ? _indexes : null, xy, npoints, nvars, _nclasses, RFCoeff)
+                        ).ToList();
             else
-            {
-                for (int t = 0; t < TreesInBatch; t++)
-                {
-                    var tree = DecisionTree.CreateTree(xy, npoints, nvars, _nclasses, RFCoeff);
-                    classifier.AddTree(tree);
-                }
-            }
+                treeList = (from n in source
+                            select DecisionTree.CreateTree(useidx ? _indexes : null, xy, npoints, nvars, _nclasses, RFCoeff)
+                        ).ToList();
+
+            treeList.ForEach(classifier.AddTree);
+
 
             return classifier;
         }
