@@ -61,7 +61,7 @@ namespace PtProject.Train
             string ids = args.Length >= 4 ? args[3] : ",";
             int ntrees = int.Parse(args.Length >= 5 ? args[4] : "300");
             double d = double.Parse(args.Length >= 6 ? args[5] : "0.07");
-            int treesbatch = 1;
+            int treesbatch = 10;
 
             Logger.Log("train = " + trainPath);
             Logger.Log("test = " + testPath);

@@ -59,7 +59,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ClassifierResult.cs" />
-    <Compile Include="DecisionForest.cs" />
+    <Compile Include="DecisionForestClassifier.cs" />
+    <Compile Include="DecisionTree.cs" />
     <Compile Include="IClassifier.cs" />
     <Compile Include="RFClassifier.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

@@ -151,7 +151,7 @@ namespace PtProject.Calc
                                 vals.Add(colname, row.Coeffs[i]);
                             }
                             var mvals = modifier.GetModifiedDataVector(vals);
-                            var prob = cls.PredictProba(mvals, false);
+                            var prob = cls.PredictCounts(mvals);
 
                             if (!probDict.ContainsKey(row.Id))
                                 probDict.Add(row.Id, 0);

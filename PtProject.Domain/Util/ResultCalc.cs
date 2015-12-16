@@ -35,7 +35,7 @@ namespace PtProject.Domain.Util
             var points = new List<RocPoint>();
             double auc = GetRocArea(rows, points, listLen);
             double recall = tp / (double)closed;
-            double precision = tp / (double)nup;
+            double precision = tp >= nup ? 1 : (tp / (double)nup);
             double logLoss = -loss / listLen;
             double fmeasure = 2*precision*recall/(precision + recall);
 
