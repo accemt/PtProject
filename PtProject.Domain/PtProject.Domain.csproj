@@ -61,6 +61,7 @@
   <ItemGroup>
     <Compile Include="Util\CombinationIterator.cs" />
     <Compile Include="DataRow.cs" />
+    <Compile Include="Util\ConfigReader.cs" />
     <Compile Include="Util\FactorManager.cs" />
     <Compile Include="FactorStat.cs" />
     <Compile Include="Util\FactorManagerStatItem.cs" />

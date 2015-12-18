@@ -16,15 +16,9 @@ namespace PtProject.Domain.Util
         static Logger()
         {
             RootHosting = Environment.CurrentDirectory;
-            try
-            {
-                var appSettings = ConfigurationManager.AppSettings;
-                if (appSettings["LoggerEnable"] != null)
-                    Enabled = bool.Parse(appSettings["LoggerEnable"]);
-            }
-            catch (Exception)
-            {
-            }
+            string cval = ConfigReader.Read("LoggerEnable");
+            if (cval!=null)
+                Enabled = bool.Parse(cval);
         }
 
         public static void Log(string message)

@@ -69,9 +69,9 @@ namespace PtProject.Loader
             Ids = new Dictionary<string, int>();
 
             SplitSymbol = ';';
-            var appSettings = ConfigurationManager.AppSettings;
-            if (appSettings["SplitSymbol"] != null)
-                SplitSymbol = appSettings["SplitSymbol"][0];
+            var cval = ConfigReader.Read("SplitSymbol");
+            if (cval!=null)
+                SplitSymbol = cval[0];
         }
 
         public DataLoader(string target) : this()

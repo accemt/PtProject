@@ -80,7 +80,7 @@ namespace PtProject.Calibrator
                             if (!countedDict.ContainsKey(vstr))
                             {
                                 var cls = new RFClassifier();
-                                cls.SetRFParams(300, 0.1, 2, 1);
+                                cls.SetRFParams(300, 0.1, 2);
                                 var fdict = factors.ToDictionary(c => c);
 
                                 foreach (string variable in fmngr.FactorDict.Keys)
@@ -121,7 +121,7 @@ namespace PtProject.Calibrator
                 sw.WriteLine("n;d;auc");
                 for (double d = 0.01; d <= 1; d += 0.1)
                 {
-                    cls.SetRFParams(300, d, 2, 1);
+                    cls.SetRFParams(300, d, 2);
                     var result = cls.Build();
                     foreach (int n in result.ResDict.Keys)
                     {
