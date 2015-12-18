@@ -4,9 +4,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using PtProject.Domain;
+using System.Globalization;
 
 using FType = System.Double;
-using PtProject.Domain;
 
 namespace PtProject.Classifier
 {
@@ -64,10 +65,13 @@ namespace PtProject.Classifier
         public double RFCoeff = 0.05;
         public int Nbatches = 100;
         public int TreesInBatch = 1;
-        public int TreesBruteForce = 1;
-        public int TreesInFirstStep = 1;
+        public int BatchesInBruteForce = 1;
+        public int BatchesInFirstStep = 1;
+        public bool LoadFirstStepBatches = false;
+        public double OutliersPrct = 0;
+        public string BruteMeasure = "train";
 
-        private SortedDictionary<int, DecisionForest> _classifiers = new SortedDictionary<int, DecisionForest>();
+        private SortedDictionary<int, DecisionBatch> _classifiers = new SortedDictionary<int, DecisionBatch>();
 
         
         /// <summary>
@@ -87,8 +91,7 @@ namespace PtProject.Classifier
         /// </summary>
         /// <param name="nbatches">общее количество классификаторов</param>
         /// <param name="r">доля множества для посторения дерева</param>
-        /// <param name="nclasses">количентсво классов</param>
-        /// <param name="treesbatch">количентсво деревьев на один классификатор</param>
+        /// <param name="nclasses">количентсво классов (пока реализовано для 2)</param>
         public void SetRFParams(int nbatches, double r, int nclasses)
         {
             Nbatches = nbatches;
@@ -96,19 +99,31 @@ namespace PtProject.Classifier
             _nclasses = nclasses;
             _sortOrder = ConfigReader.Read("IndexSort");
 
-            string tbf = ConfigReader.Read("TreesBruteForce");
-            if (tbf != null) TreesBruteForce = int.Parse(tbf);
+            string tbf = ConfigReader.Read("BatchesInBruteForce");
+            if (tbf != null) BatchesInBruteForce = int.Parse(tbf);
 
             string tib = ConfigReader.Read("TreesInBatch");
             if (tib != null) TreesInBatch = int.Parse(tib);
 
-            string tifs = ConfigReader.Read("TreesInFirstStep");
-            if (tifs != null) TreesInFirstStep = int.Parse(tifs);
+            string tifs = ConfigReader.Read("BatchesInFirstStep");
+            if (tifs != null) BatchesInFirstStep = int.Parse(tifs);
+
+            string lfsb = ConfigReader.Read("LoadFirstStepBatches");
+            if (lfsb != null) LoadFirstStepBatches = bool.Parse(lfsb);
+
+            string op = ConfigReader.Read("OutliersPrct");
+            if (op != null) OutliersPrct = double.Parse(op.Replace(',','.'), CultureInfo.InvariantCulture);
+
+            string bm = ConfigReader.Read("BruteMeasure");
+            if (bm != null) BruteMeasure = bm;
 
             Logger.Log("indexes sort order: " + _sortOrder);
-            Logger.Log("TreesBruteForce: " + TreesBruteForce);
             Logger.Log("TreesInBatch: " + TreesInBatch);
-            Logger.Log("TreesInFirstStep: " + TreesInFirstStep);
+            Logger.Log("BatchesInBruteForce: " + BatchesInBruteForce);
+            Logger.Log("BatchesInFirstStep: " + BatchesInFirstStep);
+            Logger.Log("LoadFirstStepBatches: " + LoadFirstStepBatches);
+            Logger.Log("OutliersPrct: " + OutliersPrct);
+            Logger.Log("BruteMeasure: " + BruteMeasure);
         }
 
         /// <summary>
@@ -147,6 +162,8 @@ namespace PtProject.Classifier
             foreach (var key in _trainLoader.TargetProb.Keys)
                 Logger.Log("prob[" + key.ToString("F0") + "] = " + _trainLoader.TargetProb[key].ToString("F06"));
 
+            Logger.Log("Outliers to drop: " + (int)(_trainLoader.TotalDataLines * OutliersPrct));
+
             // loading test file
             foreach (var id in _trainLoader.Ids.Keys) // the same id's
                 _testLoader.AddIdColumn(id);
@@ -173,10 +190,23 @@ namespace PtProject.Classifier
             sw.WriteLine("time;n;train auc;test auc;stype");
 
             // создаем первые классификаторы
-            for (int i = 0; i < TreesInFirstStep; i++)
+            for (int i = 0; i < BatchesInFirstStep; i++)
             {
-                var cls = CreateClassifier(useidx: false, parallel: true);
-                if (savetrees) cls.Serialize();
+                DecisionBatch cls = null;
+                if (LoadFirstStepBatches)
+                {
+                    cls = DecisionBatch.Load(Environment.CurrentDirectory + "\\batches\\" + "batch_" + string.Format("{0:0000.#}", i) + ".dmp");
+                    if (cls==null)
+                    {
+                        cls = CreateClassifier(useidx: false, parallel: true);
+                        if (savetrees) cls.Save();
+                    }
+                }
+                else
+                {
+                    cls = CreateClassifier(useidx: false, parallel: true);
+                    if (savetrees) cls.Save();
+                }
 
                 // расчитываем метрики для тестового и обучающего множества
                 var testRes = GetTestMetricsAccumulated(cls);
@@ -190,9 +220,9 @@ namespace PtProject.Classifier
             }
 
             // далее создаем классификаторы с учетом ошибки предыдущих
-            for (int i = TreesInFirstStep; i < Nbatches; i++)
+            for (int i = BatchesInFirstStep; i < Nbatches; i++)
             {
-                DecisionForest maxForest = null;
+                DecisionBatch maxForest = null;
 
                 if (boost)
                 {
@@ -201,13 +231,14 @@ namespace PtProject.Classifier
 
                     double maxMetric = 0;
                     // строим классификаторы и выбираем лучший
-                    for (int k=0;k< TreesBruteForce;k++)
+                    for (int k=0;k< BatchesInBruteForce;k++)
                     {
                         var scls = CreateClassifier(useidx: true, parallel: true);
 
                         // расчитываем метрики для тестового множества
-                        var sres = GetTrainClassificationCounts(scls);
-                        int cnt = scls.CountTrees;
+                        var trainCntRes = GetTrainClassificationCounts(scls);
+                        var testCntRes = GetTestClassificationCounts(scls);
+                        int cnt = scls.CountTreesInBatch;
 
                         var rlist = new RocItem[_trainResult.Count]; // массив для оценки результата
                         // находим статистики классификации
@@ -216,9 +247,9 @@ namespace PtProject.Classifier
                         {
                             if (rlist[idx] == null) rlist[idx] = new RocItem();
 
-                            rlist[idx].Prob = sres[id] / cnt; // среднее по наблюдениям
+                            rlist[idx].Prob = BruteMeasure == "train" ? trainCntRes[id] : testCntRes[id] / cnt; // среднее по наблюдениям
                             rlist[idx].Target = _trainResult[id];
-                            rlist[idx].Predicted = sres[id] > 0.5 ? 1 : 0;
+                            rlist[idx].Predicted = (BruteMeasure == "train" ? trainCntRes[id]/cnt : testCntRes[id]/cnt) > 0.5 ? 1 : 0;
 
                             idx++;
                         }
@@ -242,7 +273,7 @@ namespace PtProject.Classifier
 
                 var testRes = GetTestMetricsAccumulated(maxForest);
                 var trainRes = GetTrainMetricsAccumulated(maxForest);
-                if (savetrees) maxForest.Serialize();
+                if (savetrees) maxForest.Save();
 
                 ret.AddStepResult(testRes, i);
                 Logger.Log("batch=" + i + " ok; test AUC=" + testRes.AUC.ToString("F10") + "; train AUC=" + trainRes.AUC.ToString("F10"));
@@ -259,9 +290,9 @@ namespace PtProject.Classifier
         /// c учетом очередного классификатора
         /// </summary>
         /// <returns>Результат классификации</returns>
-        private FinalFuncResult GetTestMetricsAccumulated(DecisionForest cls)
+        private FinalFuncResult GetTestMetricsAccumulated(DecisionBatch cls)
         {
-            _nbTest += cls.CountTrees; // обновляем общее кол-во деревьев
+            _nbTest += cls.CountTreesInBatch; // обновляем общее кол-во деревьев
             return GetMetricsAccumulated(cls, _testProbSum, _testProbAvg, _testResult, _nbTest, GetTestClassificationCounts);
         }
 
@@ -270,18 +301,18 @@ namespace PtProject.Classifier
         /// c учетом очередного классификатора
         /// </summary>
         /// <returns>Результат классификации</returns>
-        private FinalFuncResult GetTrainMetricsAccumulated(DecisionForest cls)
+        private FinalFuncResult GetTrainMetricsAccumulated(DecisionBatch cls)
         {
-            _nbTrain += cls.CountTrees; // обновляем общее кол-во деревьев
+            _nbTrain += cls.CountTreesInBatch; // обновляем общее кол-во деревьев
             return GetMetricsAccumulated(cls, _trainProbSum, _trainProbAvg, _trainResult, _nbTrain, GetTrainClassificationCounts);
         }
 
-        private FinalFuncResult GetMetricsAccumulated(DecisionForest cls,
+        private FinalFuncResult GetMetricsAccumulated(DecisionBatch cls,
                 Dictionary<string, double> probSum,
                 Dictionary<string, double> probAvg,
                 Dictionary<string, int> resultDict,
                 int nbcount,
-                Func<DecisionForest, Dictionary<string, double>> GetResult
+                Func<DecisionBatch, Dictionary<string, double>> GetResult
             )
         {
             // получаем результат по одному классификатору
@@ -329,7 +360,7 @@ namespace PtProject.Classifier
         /// </summary>
         /// <param name="cls"></param>
         /// <returns>Количество деревьев, проголосовавших за каждый класс</returns>
-        private Dictionary<string, double> GetTestClassificationCounts(DecisionForest cls)
+        private Dictionary<string, double> GetTestClassificationCounts(DecisionBatch cls)
         {
             var probDict = new Dictionary<string, double>();
 
@@ -350,7 +381,7 @@ namespace PtProject.Classifier
         /// </summary>
         /// <param name="cls"></param>
         /// <returns>Количество деревьев, проголосовавших за каждый класс</returns>
-        private Dictionary<string, double> GetTrainClassificationCounts(DecisionForest cls)
+        private Dictionary<string, double> GetTrainClassificationCounts(DecisionBatch cls)
         {
             var probDict = new Dictionary<string, double>();
 
@@ -384,7 +415,7 @@ namespace PtProject.Classifier
             int cnt = 0;
 
             foreach (var id in _classifiers.Keys)
-                cnt += _classifiers[id].CountTrees;
+                cnt += _classifiers[id].CountTreesInBatch;
 
             for (int i = 0; i < y.Length; i++)
                 y[i] /= cnt;
@@ -420,13 +451,13 @@ namespace PtProject.Classifier
         /// Creates one classifier (batch of trees)
         /// </summary>
         /// <returns></returns>
-        private DecisionForest CreateClassifier(bool useidx=false, bool parallel=false)
+        private DecisionBatch CreateClassifier(bool useidx=false, bool parallel=false)
         {
             int npoints = _trainLoader.TotalDataLines;
             int nvars = _trainLoader.NVars;
             double coeff = RFCoeff;
             double[,] xy = _trainLoader.LearnRows;
-            var classifier = new DecisionForest();
+            var classifier = new DecisionBatch();
 
 
             IEnumerable<int> source = Enumerable.Range(1, TreesInBatch);
@@ -490,14 +521,20 @@ namespace PtProject.Classifier
             {
                 sarr = new KeyValuePair<string, double>[rowsCnt];
                 for (int l=0;l<sarr.Length;l++)
-                {
                     sarr[l] = new KeyValuePair<string, double>(l.ToString(), l);
-                }
             }
             else
             {
                 if (_sortOrder.ToLower() == "desc")
+                {
                     sarr = trainDiffs.OrderByDescending(t => t.Value).ToArray();
+
+                    int outliersCnt = (int)(sarr.Length * OutliersPrct);
+                    for (int s = 0; s < outliersCnt; s++)
+                        trainDiffs[sarr[s].Key] = -1;
+
+                    sarr = trainDiffs.OrderByDescending(t => t.Value).ToArray();
+                }
                 if (_sortOrder.ToLower() == "asc")
                     sarr = trainDiffs.OrderBy(t => t.Value).ToArray();
             }
@@ -535,7 +572,7 @@ namespace PtProject.Classifier
             }
             foreach (var finfo in files)
             {
-                var cls = DecisionForest.Deserialize(finfo.FullName);
+                var cls = DecisionBatch.Load(finfo.FullName);
                 _classifiers.Add(idx++, cls);
                 Logger.Log(finfo.Name + " loaded;");
             }
@@ -545,10 +582,7 @@ namespace PtProject.Classifier
 
         public int TotalTreesCount
         {
-            get
-            {
-                return _classifiers.Sum(c => c.Value.CountTrees);
-            }
+            get { return _classifiers.Sum(c => c.Value.CountTreesInBatch); }
         }
 
         private void ModifyData()

@@ -11,42 +11,42 @@ using System.Threading.Tasks;
 namespace PtProject.Classifier
 {
     [Serializable]
-    public class DecisionForest
+    public class DecisionBatch
     {
         public static int NCls = 0;
 
         /// <summary>
         /// List of decision trees
         /// </summary>
-        private List<DecisionTree> _forest;
+        private List<DecisionTree> _batch;
 
         /// <summary>
         /// Classifier id
         /// </summary>
         public int Id { get; private set; }
 
-        public DecisionForest()
+        public DecisionBatch()
         {
-            _forest = new List<DecisionTree>();
+            _batch = new List<DecisionTree>();
             Id = NCls++;
         }
 
         public void AddTree(DecisionTree tree)
         {
-            _forest.Add(tree);
+            _batch.Add(tree);
         }
 
         /// <summary>
         /// Количество деревьев в классификаторе
         /// </summary>
-        public int CountTrees
+        public int CountTreesInBatch
         {
-            get { return _forest.Count(); }
+            get { return _batch.Count(); }
         }
 
         public void Clear()
         {
-            _forest.Clear();
+            _batch.Clear();
         }
 
         /// <summary>
@@ -56,8 +56,8 @@ namespace PtProject.Classifier
         /// <returns></returns>
         public double[] PredictProba(double[] sarr)
         {
-            int ntrees = _forest.Count;
-            int nclasses = _forest.First().NClasses;
+            int ntrees = _batch.Count;
+            int nclasses = _batch.First().NClasses;
             var sy = PredictCounts(sarr);
             
             for (int i=0;i<nclasses;i++)
@@ -73,14 +73,14 @@ namespace PtProject.Classifier
         /// <returns></returns>
         public double[] PredictCounts(double[] sarr)
         {
-            int ntrees = _forest.Count;
+            int ntrees = _batch.Count;
             if (ntrees == 0)
                 throw new InvalidOperationException("forest is empty");
 
-            int nclasses = _forest.First().NClasses;
+            int nclasses = _batch.First().NClasses;
 
             var sy = new double[nclasses];
-            foreach (var tree in _forest)
+            foreach (var tree in _batch)
             {
                 if (tree.NClasses!=nclasses)
                     throw new InvalidOperationException("every tree must have equal NClasses parameter");
@@ -93,7 +93,7 @@ namespace PtProject.Classifier
             return sy;
         }
 
-        public void Serialize()
+        public void Save()
         {
             string treesDir = Environment.CurrentDirectory + "\\batches";
             if (!Directory.Exists(treesDir))
@@ -117,23 +117,24 @@ namespace PtProject.Classifier
             }
         }
 
-        public static DecisionForest Deserialize(string path)
+        public static DecisionBatch Load(string path)
         {
-            var fs = new FileStream(path, FileMode.Open, FileAccess.Read);
-            var formatter = new BinaryFormatter();
-            DecisionForest cls = null;
+            DecisionBatch cls = null;
+            FileStream fs = null;
 
             try
             {
-                cls = (DecisionForest)formatter.Deserialize(fs);
+                fs = new FileStream(path, FileMode.Open, FileAccess.Read);
+                var formatter = new BinaryFormatter();
+                cls = (DecisionBatch)formatter.Deserialize(fs);
             }
-            catch (SerializationException e)
+            catch (Exception e)
             {
                 Logger.Log(e);
             }
             finally
             {
-                fs.Close();
+                if (fs!=null) fs.Close();
             }
 
             return cls;
