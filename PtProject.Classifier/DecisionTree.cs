@@ -46,7 +46,7 @@ namespace PtProject.Classifier
             alglib.dfbuildrandomdecisionforest(xy, npoints, nvars, nclasses, 1, coeff, out info, out df, out rep);
 
             var tree = new DecisionTree(df, nclasses);
-            tree.Id = id==0?N++:id;
+            tree.Id = id==0?CreateId():id;
             return tree;
         }
 
@@ -61,7 +61,7 @@ namespace PtProject.Classifier
 
             var exists = new Dictionary<int, int>();
 
-            while (nk<modNpoints)
+            while (nk < modNpoints)
             {
                 for (int i = 0; i < modNpoints; i++)
                 {
@@ -82,20 +82,19 @@ namespace PtProject.Classifier
                 if (nk >= modNpoints) break;
             }
 
-            int id = 0;
-            lock(_locker)
-            {
-                id = N++;
-                var sw = new StreamWriter(new FileStream("tree" + id + ".csv", FileMode.Create, FileAccess.Write));
-                sw.WriteLine("n;exist");
-                for (int i = 0; i < npoints; i++)
-                {
-                    sw.WriteLine(i + ";" + (exists.ContainsKey(i)?1:0));
-                }
-                sw.Close();
-            }
+            int id = CreateId();
 
             return CreateTree(nxy, modNpoints, nvars, nclasses, 1, id);
+        }
+
+        private static int CreateId()
+        {
+            int id;
+            lock (_locker)
+            {
+                id = N++;
+            }
+            return id;
         }
     }
 }
