@@ -295,10 +295,11 @@ namespace PtProject.Loader
         private string[] GetStringBlocks(string nextline)
         {
             string[] blocks;
+            string modstring = RemoveSplitterFromString(nextline);
             if (SplitSymbol != ',')
-                blocks = nextline.ToLower().Replace(',', '.').Split(SplitSymbol);
+                blocks = modstring.ToLower().Replace(',', '.').Split(SplitSymbol);
             else
-                blocks = nextline.ToLower().Split(SplitSymbol);
+                blocks = modstring.ToLower().Split(SplitSymbol);
             if (blocks != null)
             {
                 for (int i = 0; i < blocks.Length; i++)
@@ -309,6 +310,32 @@ namespace PtProject.Loader
             }
 
             return blocks;
+        }
+
+        private string RemoveSplitterFromString(string nextline)
+        {
+            bool insub = false;
+            int len = nextline.Length;
+            var sb = new StringBuilder();
+            for (int i=0;i<len;i++)
+            {
+                if (nextline[i] == '\"' && !insub)
+                {
+                    insub = true;
+                    continue;
+                }
+                if (nextline[i] == '\"' && insub)
+                {
+                    insub = false;
+                    continue;
+                }
+                if (nextline[i] == SplitSymbol && insub)
+                    sb.Append(' ');
+                else
+                    sb.Append(nextline[i]);
+
+            }
+            return sb.ToString();
         }
 
         private string GetStringId(string[] blocks)
@@ -360,13 +387,31 @@ namespace PtProject.Loader
             if (!isok)
             {
                 if (!StringValues.ContainsKey(str))
-                    StringValues.Add(str, StringValues.Count);
+                {
+                    var md5hash = ComputeMD5Hash(GetBytes(str));
+                    int ival = BitConverter.ToInt32(md5hash, 0);
+                    StringValues.Add(str, ival);
+                }
 
                 val = StringValues[str];
             }
             fval = (T)Convert.ChangeType(val, typeof(T));
             return fval;
         }
+
+        static System.Security.Cryptography.MD5 md5Algorithm = System.Security.Cryptography.MD5.Create();
+        static byte[] ComputeMD5Hash(byte[] data)
+        {
+            return md5Algorithm.ComputeHash(data);
+        }
+
+        static byte[] GetBytes(string str)
+        {
+            byte[] bytes = new byte[str.Length * sizeof(char)];
+            Buffer.BlockCopy(str.ToCharArray(), 0, bytes, 0, bytes.Length);
+            return bytes;
+        }
+
 
         /// <summary>
         /// Id column by default skipped and can be multiply
