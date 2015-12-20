@@ -136,7 +136,7 @@ namespace PtProject.Calc
                     cnt = cls.LoadTrees(null, bucketsize, idx);
                     if (cnt > 0)
                     {
-                        totaltrees += cls.TotalTreesCount;
+                        totaltrees += cls.CountAllTrees;
 
                         int nc = 0;
                         // calculating prob for each row

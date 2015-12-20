@@ -246,6 +246,8 @@ namespace PtProject.Loader
                                 Rows.Add(row);
                             else
                                 ProceedRowFunc(row);
+
+                            TotalDataLines++;
                         }
 
                         if (idx % 12345 == 0) Logger.Log(idx + " lines loaded");
@@ -391,7 +393,7 @@ namespace PtProject.Loader
                 {
                     var md5hash = ComputeMD5Hash(GetBytes(str));
                     var hash4 = Compute4BytesHash(md5hash);
-                    int ival = (ushort)(BitConverter.ToInt32(md5hash, 0) % short.MaxValue);
+                    int ival = BitConverter.ToInt32(md5hash, 0);
                     StringValues.Add(str, ival);
                 }
 
@@ -450,6 +452,16 @@ namespace PtProject.Loader
             {
                 if (string.IsNullOrWhiteSpace(b)) continue;
                 AddIdColumn(b);
+            }
+        }
+
+        public void AddSkipColumns(string skipColumns)
+        {
+            string[] blocks = skipColumns.Split(',');
+            foreach (string b in blocks)
+            {
+                if (string.IsNullOrWhiteSpace(b)) continue;
+                AddSkipColumn(b);
             }
         }
 

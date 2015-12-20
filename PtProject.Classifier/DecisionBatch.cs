@@ -100,7 +100,8 @@ namespace PtProject.Classifier
                 Directory.CreateDirectory(treesDir);
             var dinfo = new DirectoryInfo(treesDir);
 
-            var fs = new FileStream(dinfo.FullName + "\\" + "batch_" + string.Format("{0:0000.#}", Id) + ".dmp", FileMode.Create, FileAccess.Write);
+            string fullname = dinfo.FullName + "\\" + "batch_" + string.Format("{0:0000.#}", Id) + ".dmp";
+            var fs = new FileStream(fullname, FileMode.Create, FileAccess.Write);
 
             var formatter = new BinaryFormatter();
             try
@@ -127,6 +128,7 @@ namespace PtProject.Classifier
                 fs = new FileStream(path, FileMode.Open, FileAccess.Read);
                 var formatter = new BinaryFormatter();
                 cls = (DecisionBatch)formatter.Deserialize(fs);
+                cls.Id = NCls++;
             }
             catch (Exception e)
             {

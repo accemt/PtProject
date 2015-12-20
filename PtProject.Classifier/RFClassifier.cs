@@ -70,6 +70,7 @@ namespace PtProject.Classifier
         public bool LoadFirstStepBatches = false;
         public double OutliersPrct = 0;
         public string BruteMeasure = "train";
+        public string SkipColumns = "";
 
         private SortedDictionary<int, DecisionBatch> _classifiers = new SortedDictionary<int, DecisionBatch>();
 
@@ -117,6 +118,9 @@ namespace PtProject.Classifier
             string bm = ConfigReader.Read("BruteMeasure");
             if (bm != null) BruteMeasure = bm;
 
+            string sc = ConfigReader.Read("SkipColumns");
+            if (sc != null) SkipColumns = sc;
+
             Logger.Log("indexes sort order: " + _sortOrder);
             Logger.Log("TreesInBatch: " + TreesInBatch);
             Logger.Log("BatchesInBruteForce: " + BatchesInBruteForce);
@@ -124,6 +128,7 @@ namespace PtProject.Classifier
             Logger.Log("LoadFirstStepBatches: " + LoadFirstStepBatches);
             Logger.Log("OutliersPrct: " + OutliersPrct);
             Logger.Log("BruteMeasure: " + BruteMeasure);
+            Logger.Log("SkipColumns: " + SkipColumns);
         }
 
         /// <summary>
@@ -157,6 +162,7 @@ namespace PtProject.Classifier
             // loading train file
             _trainLoader.IsLoadForLearning = true;
             _trainLoader.AddIdsString(ids);
+            _trainLoader.AddSkipColumns(SkipColumns);
             _trainLoader.Load(_trainPath);
 
             foreach (var key in _trainLoader.TargetProb.Keys)
@@ -208,7 +214,7 @@ namespace PtProject.Classifier
                     if (savetrees) cls.Save();
                 }
 
-                // расчитываем метрики для тестового и обучающего множества
+                // расчитываем метрики для тестового и обучающего множества (накопленные)
                 var testRes = GetTestMetricsAccumulated(cls);
                 var trainRes = GetTrainMetricsAccumulated(cls);
 
@@ -219,17 +225,24 @@ namespace PtProject.Classifier
                 ret.AddStepResult(testRes, i);
             }
 
+            var weights = new double[_trainResult.Count];
+            for (int l = 0; l < _trainResult.Count; l++)
+                weights[l] = 1.0 / _trainResult.Count;
+            double[] bestWeights = null;
+
             // далее создаем классификаторы с учетом ошибки предыдущих
             for (int i = BatchesInFirstStep; i < Nbatches; i++)
             {
-                DecisionBatch maxForest = null;
+                DecisionBatch bestForest = null;
 
                 if (boost)
                 {
                     // перестраиваем индексы плохо классифицированных объектов (плохие сначала)
                     RefreshIndexes();
 
-                    double maxMetric = 0;
+                    double bestMetric = 1000000;
+                    int bestk = 0;
+
                     // строим классификаторы и выбираем лучший
                     for (int k=0;k< BatchesInBruteForce;k++)
                     {
@@ -247,33 +260,60 @@ namespace PtProject.Classifier
                         {
                             if (rlist[idx] == null) rlist[idx] = new RocItem();
 
-                            rlist[idx].Prob = BruteMeasure == "train" ? trainCntRes[id] : testCntRes[id] / cnt; // среднее по наблюдениям
+                            rlist[idx].Prob = (BruteMeasure == "train" ? trainCntRes[id] : testCntRes[id]) / cnt; // среднее по наблюдениям
                             rlist[idx].Target = _trainResult[id];
-                            rlist[idx].Predicted = (BruteMeasure == "train" ? trainCntRes[id]/cnt : testCntRes[id]/cnt) > 0.5 ? 1 : 0;
+                            rlist[idx].Predicted = rlist[idx].Prob > 0.5 ? 1 : 0;
 
                             idx++;
                         }
+
+                        //Вычисляем ввзвешенную ошибку классификации 
+                        double epsilon = 0.0;
+                        for (int l=0;l<rlist.Length;l++)
+                            epsilon += (rlist[l].Predicted > 0 ? 1 : -1) != (rlist[l].Target > 0 ? 1 : -1) ? weights[l] : 0.0;
+
+                        double alpha = 0.5 * Math.Log((1 - epsilon) / epsilon);
+                        double weightsSum = 0;
+                        double[] nweights = new double[weights.Length];
+                        for (int l = 0; l < weights.Length; l++)
+                            nweights[l] = weights[l];
+
+                        for (int l = 0; l < rlist.Length; l++)
+                        {
+                            nweights[l] *= Math.Exp(-alpha * (rlist[l].Target>0?1:-1) * (rlist[l].Predicted>0?1:-1));
+                            weightsSum += nweights[l];
+                        }
+                        // Нормируем полученные коэффициенты 
+                        for (int l = 0; l < nweights.Length; l++)
+                            nweights[l] /= weightsSum;
+
+                        Logger.Log("eps=" + epsilon + (epsilon < bestMetric ? " [best]" : ""));
+
                         Array.Sort(rlist, (o1, o2) => (1 - o1.Prob).CompareTo(1 - o2.Prob));
                         var clsRes = ResultCalc.GetResult(rlist, 0.05);
 
                         Logger.Log("sub cls #" + k + " auc=" + clsRes.AUC.ToString("F10"));
 
-                        if (clsRes.AUC > maxMetric)
+                        if (epsilon < bestMetric)
                         {
-                            maxMetric = clsRes.AUC;
-                            maxForest = scls;
+                            bestMetric = epsilon;
+                            bestForest = scls;
+                            bestWeights = nweights;
+                            bestk = k;
                         }
                     }
+
+                    weights = bestWeights;
                 }
                 else
                 {
-                    maxForest = CreateClassifier(useidx: false, parallel: true);
+                    bestForest = CreateClassifier(useidx: false, parallel: true);
                 }
 
 
-                var testRes = GetTestMetricsAccumulated(maxForest);
-                var trainRes = GetTrainMetricsAccumulated(maxForest);
-                if (savetrees) maxForest.Save();
+                var testRes = GetTestMetricsAccumulated(bestForest);
+                var trainRes = GetTrainMetricsAccumulated(bestForest);
+                if (savetrees) bestForest.Save();
 
                 ret.AddStepResult(testRes, i);
                 Logger.Log("batch=" + i + " ok; test AUC=" + testRes.AUC.ToString("F10") + "; train AUC=" + trainRes.AUC.ToString("F10"));
@@ -423,6 +463,26 @@ namespace PtProject.Classifier
             return y;
         }
 
+        public double[] PredictProba(double[] sarr, double[] coeffs)
+        {
+            var y = new double[_nclasses];
+            int cnt = _classifiers.Keys.Count();
+
+            int cnum = 0;
+            foreach (var id in _classifiers.Keys)
+            {
+                var cls = _classifiers[id];
+                var sy = cls.PredictProba(sarr);
+
+                for (int i = 0; i < sy.Length; i++)
+                    y[i] += sy[i]*coeffs[cnum];
+
+                cnum++;
+            }
+
+            return y;
+        }
+
 
         /// <summary>
         /// Get trees counts for each class
@@ -565,7 +625,7 @@ namespace PtProject.Classifier
             _classifiers.Clear();
 
             int idx = 0;
-            var files = dinfo.GetFiles().OrderBy(f => f.Name).ToArray();
+            var files = dinfo.GetFiles("*.dmp").OrderBy(f => f.Name).ToArray();
             if (cnt > 0)
             {
                 files = files.Skip(cnt * bucket).Take(cnt).ToArray();
@@ -580,10 +640,22 @@ namespace PtProject.Classifier
             return idx;
         }
 
-        public int TotalTreesCount
+        /// <summary>
+        /// Get all trees in all batches count
+        /// </summary>
+        public int CountAllTrees
         {
             get { return _classifiers.Sum(c => c.Value.CountTreesInBatch); }
         }
+
+        /// <summary>
+        /// Count all batches in classifier
+        /// </summary>
+        public int CountAllBatches
+        {
+            get { return _classifiers.Count; }
+        }
+
 
         private void ModifyData()
         {
