@@ -358,17 +358,18 @@ namespace PtProject.Loader
             int result = 0;
             try
             {
-                var sr = new StreamReader(new FileStream(filename, FileMode.Open, FileAccess.Read), Encoding.GetEncoding(1251));
-
-                string nextline = null;
-                int idx = 0;
-                while ((nextline = sr.ReadLine()) != null)
+                using (var sr = new StreamReader(new FileStream(filename, FileMode.Open, FileAccess.Read), Encoding.GetEncoding(1251)))
                 {
-                    idx++;
-                    if (idx == 1) continue; // skip header
+                    string nextline = null;
+                    int idx = 0;
+                    while ((nextline = sr.ReadLine()) != null)
+                    {
+                        idx++;
+                        if (idx == 1) continue; // skip header
 
-                    if (!string.IsNullOrWhiteSpace(nextline))
-                        result++;
+                        if (!string.IsNullOrWhiteSpace(nextline))
+                            result++;
+                    }
                 }
             }
             catch (Exception e)
@@ -389,7 +390,8 @@ namespace PtProject.Loader
                 if (!StringValues.ContainsKey(str))
                 {
                     var md5hash = ComputeMD5Hash(GetBytes(str));
-                    int ival = BitConverter.ToInt32(md5hash, 0);
+                    var hash4 = Compute4BytesHash(md5hash);
+                    int ival = (ushort)(BitConverter.ToInt32(md5hash, 0) % short.MaxValue);
                     StringValues.Add(str, ival);
                 }
 
@@ -397,6 +399,22 @@ namespace PtProject.Loader
             }
             fval = (T)Convert.ChangeType(val, typeof(T));
             return fval;
+        }
+
+        private byte[] Compute4BytesHash(byte[] data)
+        {
+            if (data.Length <= 4) return data;
+            byte[] sarr = new byte[4];
+            int slen = data.Length / 4;
+            for (int i=0;i<slen;i++)
+            {
+                sarr[0] ^= i + 0 < data.Length ? data[i + 0] : (byte)0;
+                sarr[1] ^= i + 1 < data.Length ? data[i + 1] : (byte)0;
+                sarr[2] ^= i + 2 < data.Length ? data[i + 2] : (byte)0;
+                sarr[3] ^= i + 3 < data.Length ? data[i + 3] : (byte)0;
+            }
+
+            return sarr;
         }
 
         static System.Security.Cryptography.MD5 md5Algorithm = System.Security.Cryptography.MD5.Create();
