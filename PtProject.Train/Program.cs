@@ -71,8 +71,8 @@ namespace PtProject.Train
 
             try
             {
-                var cls = new RFClassifier();
-                cls.SetRFParams(nbatches, d, 2);
+                var cls = new RFClassifier(nbatches, d, 2);
+                cls.PrintParams();
                 cls.LoadData(trainPath, testPath, ids, target);
                 var result = cls.Build(savetrees: true, boost: true);
 

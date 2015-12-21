@@ -72,9 +72,9 @@ namespace PtProject.Calc
                 using (var sw = new StreamWriter(new FileStream(dataPath + "_calc.csv", FileMode.Create, FileAccess.Write)))
                 {
                     if (target!=null)
-                        sw.WriteLine("id;prob;target");
+                        sw.WriteLine(loader.IdName + ";prob;target");
                     else
-                        sw.WriteLine("id;prob");
+                        sw.WriteLine(loader.IdName + ";prob");
 
                     int idx = 0;
                     // calculating prob for each row
@@ -165,7 +165,10 @@ namespace PtProject.Calc
 
                 using (var sw = new StreamWriter(new FileStream(dataPath + "_calc.csv", FileMode.Create, FileAccess.Write)))
                 {
-                    sw.WriteLine("id_client;id_model;prob;target");
+                    if (target != null)
+                        sw.WriteLine(loader.IdName + ";prob;target");
+                    else
+                        sw.WriteLine(loader.IdName + ";prob");
 
                     foreach (var row in loader.Rows)
                     {

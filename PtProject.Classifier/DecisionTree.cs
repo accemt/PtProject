@@ -16,13 +16,15 @@ namespace PtProject.Classifier
 
         public alglib.decisionforest AlglibTree { get; private set; }
         public int NClasses { get; private set; }
+        public int NVars { get; private set; }
 
         public int Id;
 
-        public DecisionTree(alglib.decisionforest tree, int nclasses)
+        public DecisionTree(alglib.decisionforest tree, int nclasses, int nvars)
         {
             AlglibTree = tree;
             NClasses = nclasses;
+            NVars = nvars;
         }
 
         /// <summary>
@@ -32,6 +34,9 @@ namespace PtProject.Classifier
         /// <returns></returns>
         public double[] PredictCounts(double[] sarr)
         {
+            if (sarr.Length != NVars)
+                throw new InvalidOperationException("NVars != sarr.Length");
+
             var sy = new double[NClasses];
             alglib.dfprocess(AlglibTree, sarr, ref sy);
 
@@ -45,7 +50,7 @@ namespace PtProject.Classifier
             alglib.dfreport rep;
             alglib.dfbuildrandomdecisionforest(xy, npoints, nvars, nclasses, 1, coeff, out info, out df, out rep);
 
-            var tree = new DecisionTree(df, nclasses);
+            var tree = new DecisionTree(df, nclasses, nvars);
             tree.Id = id==0?CreateId():id;
             return tree;
         }

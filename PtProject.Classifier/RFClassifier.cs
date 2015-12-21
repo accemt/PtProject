@@ -60,10 +60,10 @@ namespace PtProject.Classifier
         private int _nbTest = 0;
         private int _nclasses = 2;
         private int[] _indexes = null;
-        private string _sortOrder = null;
+        private Dictionary<string,double> _errors = new Dictionary<string, FType>();
 
         public double RFCoeff = 0.05;
-        public int Nbatches = 100;
+        public int TotalBatches = 100;
         public int TreesInBatch = 1;
         public int BatchesInBruteForce = 1;
         public int BatchesInFirstStep = 1;
@@ -71,6 +71,7 @@ namespace PtProject.Classifier
         public double OutliersPrct = 0;
         public string BruteMeasure = "train";
         public string SkipColumns = "";
+        public string IndexSortOrder = "none";
 
         private SortedDictionary<int, DecisionBatch> _classifiers = new SortedDictionary<int, DecisionBatch>();
 
@@ -87,18 +88,30 @@ namespace PtProject.Classifier
             }
         }
 
+        public RFClassifier(int nbatches, double r, int nclasses)
+        {
+            LoadDefaultParams();
+
+            TotalBatches = nbatches;
+            RFCoeff = r;
+            _nclasses = nclasses;
+        }
+
+        public RFClassifier()
+        {
+            LoadDefaultParams();
+        }
+
         /// <summary>
         /// Задание параметров random forest
         /// </summary>
         /// <param name="nbatches">общее количество классификаторов</param>
         /// <param name="r">доля множества для посторения дерева</param>
         /// <param name="nclasses">количентсво классов (пока реализовано для 2)</param>
-        public void SetRFParams(int nbatches, double r, int nclasses)
+        public void LoadDefaultParams()
         {
-            Nbatches = nbatches;
-            RFCoeff = r;
-            _nclasses = nclasses;
-            _sortOrder = ConfigReader.Read("IndexSort");
+            string so = ConfigReader.Read("IndexSort");
+            if (so != null) IndexSortOrder = ConfigReader.Read("IndexSort");
 
             string tbf = ConfigReader.Read("BatchesInBruteForce");
             if (tbf != null) BatchesInBruteForce = int.Parse(tbf);
@@ -113,7 +126,7 @@ namespace PtProject.Classifier
             if (lfsb != null) LoadFirstStepBatches = bool.Parse(lfsb);
 
             string op = ConfigReader.Read("OutliersPrct");
-            if (op != null) OutliersPrct = double.Parse(op.Replace(',','.'), CultureInfo.InvariantCulture);
+            if (op != null) OutliersPrct = double.Parse(op.Replace(',', '.'), CultureInfo.InvariantCulture);
 
             string bm = ConfigReader.Read("BruteMeasure");
             if (bm != null) BruteMeasure = bm;
@@ -121,11 +134,22 @@ namespace PtProject.Classifier
             string sc = ConfigReader.Read("SkipColumns");
             if (sc != null) SkipColumns = sc;
 
-            Logger.Log("indexes sort order: " + _sortOrder);
-            Logger.Log("TreesInBatch: " + TreesInBatch);
-            Logger.Log("BatchesInBruteForce: " + BatchesInBruteForce);
+            string tb = ConfigReader.Read("TotalBatches");
+            if (tb != null) TotalBatches = int.Parse(tb);
+
+            string rfc = ConfigReader.Read("RFCoeff");
+            if (rfc != null) RFCoeff = double.Parse(rfc.Replace(',', '.'), CultureInfo.InvariantCulture);
+        }
+
+        public void PrintParams()
+        {
+            Logger.Log("RFCoeff: " + RFCoeff);
+            Logger.Log("TotalBatches: " + TotalBatches);
             Logger.Log("BatchesInFirstStep: " + BatchesInFirstStep);
+            Logger.Log("BatchesInBruteForce: " + BatchesInBruteForce);
+            Logger.Log("TreesInBatch: " + TreesInBatch);
             Logger.Log("LoadFirstStepBatches: " + LoadFirstStepBatches);
+            Logger.Log("indexes sort order: " + IndexSortOrder);
             Logger.Log("OutliersPrct: " + OutliersPrct);
             Logger.Log("BruteMeasure: " + BruteMeasure);
             Logger.Log("SkipColumns: " + SkipColumns);
@@ -225,13 +249,8 @@ namespace PtProject.Classifier
                 ret.AddStepResult(testRes, i);
             }
 
-            var weights = new double[_trainResult.Count];
-            for (int l = 0; l < _trainResult.Count; l++)
-                weights[l] = 1.0 / _trainResult.Count;
-            double[] bestWeights = null;
-
             // далее создаем классификаторы с учетом ошибки предыдущих
-            for (int i = BatchesInFirstStep; i < Nbatches; i++)
+            for (int i = BatchesInFirstStep; i < TotalBatches; i++)
             {
                 DecisionBatch bestForest = null;
 
@@ -256,6 +275,7 @@ namespace PtProject.Classifier
                         var rlist = new RocItem[_trainResult.Count]; // массив для оценки результата
                         // находим статистики классификации
                         int idx = 0;
+                        double epsilon = 0.0;
                         foreach (string id in _trainResult.Keys)
                         {
                             if (rlist[idx] == null) rlist[idx] = new RocItem();
@@ -264,46 +284,23 @@ namespace PtProject.Classifier
                             rlist[idx].Target = _trainResult[id];
                             rlist[idx].Predicted = rlist[idx].Prob > 0.5 ? 1 : 0;
 
+                            epsilon += Math.Abs(rlist[idx].Prob - rlist[idx].Target) * _errors[id];
+
                             idx++;
-                        }
-
-                        //Вычисляем ввзвешенную ошибку классификации 
-                        double epsilon = 0.0;
-                        for (int l=0;l<rlist.Length;l++)
-                            epsilon += (rlist[l].Predicted > 0 ? 1 : -1) != (rlist[l].Target > 0 ? 1 : -1) ? weights[l] : 0.0;
-
-                        double alpha = 0.5 * Math.Log((1 - epsilon) / epsilon);
-                        double weightsSum = 0;
-                        double[] nweights = new double[weights.Length];
-                        for (int l = 0; l < weights.Length; l++)
-                            nweights[l] = weights[l];
-
-                        for (int l = 0; l < rlist.Length; l++)
-                        {
-                            nweights[l] *= Math.Exp(-alpha * (rlist[l].Target>0?1:-1) * (rlist[l].Predicted>0?1:-1));
-                            weightsSum += nweights[l];
-                        }
-                        // Нормируем полученные коэффициенты 
-                        for (int l = 0; l < nweights.Length; l++)
-                            nweights[l] /= weightsSum;
-
-                        Logger.Log("eps=" + epsilon + (epsilon < bestMetric ? " [best]" : ""));
+                        }   
 
                         Array.Sort(rlist, (o1, o2) => (1 - o1.Prob).CompareTo(1 - o2.Prob));
                         var clsRes = ResultCalc.GetResult(rlist, 0.05);
 
-                        Logger.Log("sub cls #" + k + " auc=" + clsRes.AUC.ToString("F10"));
+                        Logger.Log("sub cls #" + k + " auc=" + clsRes.AUC.ToString("F10") + " eps=" + epsilon + (epsilon < bestMetric ? " [best]" : ""));
 
                         if (epsilon < bestMetric)
                         {
                             bestMetric = epsilon;
                             bestForest = scls;
-                            bestWeights = nweights;
                             bestk = k;
                         }
                     }
-
-                    weights = bestWeights;
                 }
                 else
                 {
@@ -317,7 +314,7 @@ namespace PtProject.Classifier
 
                 ret.AddStepResult(testRes, i);
                 Logger.Log("batch=" + i + " ok; test AUC=" + testRes.AUC.ToString("F10") + "; train AUC=" + trainRes.AUC.ToString("F10"));
-                sw.WriteLine(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + ";" + i + ";" + trainRes.AUC + ";" + testRes.AUC + ";" + _sortOrder);
+                sw.WriteLine(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + ";" + i + ";" + trainRes.AUC + ";" + testRes.AUC + ";" + IndexSortOrder);
                 sw.Flush();
             }
 
@@ -407,7 +404,6 @@ namespace PtProject.Classifier
             // пробегаем по всем клиентски данным и сохраняем результат
             foreach (string id in _testDataDict.Keys)
             {
-                //var y = PredictProba(cls, _testDataDict[id]);
                 var y = cls.PredictCounts(_testDataDict[id]);
                 if (!probDict.ContainsKey(id))
                     probDict.Add(id, y[1]);
@@ -548,7 +544,7 @@ namespace PtProject.Classifier
             int rowsCnt = _trainResult.Count;
 
             // находим разницы между реальными значениями и прогнозными в train-set
-            var trainDiffs = new Dictionary<string, double>();
+            _errors = new Dictionary<string, double>();
             var rlist = new RocItem[rowsCnt]; // массив для оценки результата
 
             double sumdiff = 0;
@@ -560,7 +556,7 @@ namespace PtProject.Classifier
                 double diff = Math.Abs(tprob - targ);
                 sumdiff += diff;
 
-                trainDiffs.Add(k, diff);
+                _errors.Add(k, diff);
 
                 rlist[i] = new RocItem();
                 rlist[i].Prob = tprob;
@@ -577,7 +573,7 @@ namespace PtProject.Classifier
 
             // сортируем индексы
             KeyValuePair<string, double>[] sarr = null;
-            if (_sortOrder==null || (_sortOrder.ToLower()!="desc" && _sortOrder.ToLower()!="asc"))
+            if (IndexSortOrder==null || (IndexSortOrder.ToLower()!="desc" && IndexSortOrder.ToLower()!="asc"))
             {
                 sarr = new KeyValuePair<string, double>[rowsCnt];
                 for (int l=0;l<sarr.Length;l++)
@@ -585,18 +581,18 @@ namespace PtProject.Classifier
             }
             else
             {
-                if (_sortOrder.ToLower() == "desc")
+                if (IndexSortOrder.ToLower() == "desc")
                 {
-                    sarr = trainDiffs.OrderByDescending(t => t.Value).ToArray();
+                    sarr = _errors.OrderByDescending(t => t.Value).ToArray();
 
                     int outliersCnt = (int)(sarr.Length * OutliersPrct);
                     for (int s = 0; s < outliersCnt; s++)
-                        trainDiffs[sarr[s].Key] = -1;
+                        _errors[sarr[s].Key] = -1;
 
-                    sarr = trainDiffs.OrderByDescending(t => t.Value).ToArray();
+                    sarr = _errors.OrderByDescending(t => t.Value).ToArray();
                 }
-                if (_sortOrder.ToLower() == "asc")
-                    sarr = trainDiffs.OrderBy(t => t.Value).ToArray();
+                if (IndexSortOrder.ToLower() == "asc")
+                    sarr = _errors.OrderBy(t => t.Value).ToArray();
             }
 
             _indexes = new int[rowsCnt];
