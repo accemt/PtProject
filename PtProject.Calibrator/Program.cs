@@ -97,9 +97,9 @@ namespace PtProject.Calibrator
                                 Logger.Log("skipping...");
                             }
 
-                            sw.WriteLine(fmngr.TargDep.ToString("F02") + ";" + fmngr.FactorDep.ToString("F02") + ";" + factors.Length + ";" + countedDict[vstr].LastResult.AUC + ";" + countedDict[vstr].BestResult.AUC + ";" + vstr + ";" + measureField);
+                            sw.WriteLine(fmngr.TargDep.ToString("F06") + ";" + fmngr.FactorDep.ToString("F06") + ";" + factors.Length + ";" + countedDict[vstr].LastResult.AUC + ";" + countedDict[vstr].BestResult.AUC + ";" + vstr + ";" + measureField);
                             sw.Flush();
-                            Logger.Log("td=" + td.ToString("F02") + "; fd=" + fd.ToString("F02") + "; cnt=" + factors.Length + ";" + countedDict[vstr].LastResult.AUC);
+                            Logger.Log("td=" + td.ToString("F06") + "; fd=" + fd.ToString("F06") + "; cnt=" + factors.Length + ";" + countedDict[vstr].LastResult.AUC);
                         }
                         catch (Exception e)
                         {
@@ -116,7 +116,7 @@ namespace PtProject.Calibrator
             using (var sw = new StreamWriter(new FileStream("rfstat.csv", FileMode.Create, FileAccess.Write)))
             {
                 sw.WriteLine("n;d;auc");
-                for (double d = 0.01; d <= 1; d += 0.01)
+                for (double d = 0.01; d <= 1; d += 0.05)
                 {
                     var cls = new RFClassifier();
                     cls.RFCoeff = d;
@@ -125,7 +125,7 @@ namespace PtProject.Calibrator
                     var result = cls.Build();
                     foreach (int n in result.ResDict.Keys)
                     {
-                        sw.WriteLine(n + ";" + d.ToString("F02") + ";" + result.ResDict[n].AUC.ToString("F03"));
+                        sw.WriteLine(n + ";" + d.ToString("F06") + ";" + result.ResDict[n].AUC.ToString("F03"));
                         sw.Flush();
                     }
                 }
