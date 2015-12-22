@@ -3,6 +3,7 @@ using PtProject.Domain.Util;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -116,7 +117,20 @@ namespace PtProject.Calibrator
             using (var sw = new StreamWriter(new FileStream("rfstat.csv", FileMode.Create, FileAccess.Write)))
             {
                 sw.WriteLine("n;d;auc");
-                for (double d = 0.01; d <= 1; d += 0.05)
+                double d = 0.01;
+                string sd = ConfigReader.Read("StartCoeff");
+                if (sd != null)
+                    d = double.Parse(sd.Replace(',', '.'), CultureInfo.InvariantCulture);
+
+                double delta = 0.05;
+                string sdl = ConfigReader.Read("Delta");
+                if (sdl!=null)
+                    delta = double.Parse(sdl.Replace(',', '.'), CultureInfo.InvariantCulture);
+
+                Logger.Log("start d = " + d);
+                Logger.Log("delta = " + delta);
+
+                for (; d <= 1; d += delta)
                 {
                     var cls = new RFClassifier();
                     cls.RFCoeff = d;
@@ -125,7 +139,7 @@ namespace PtProject.Calibrator
                     var result = cls.Build();
                     foreach (int n in result.ResDict.Keys)
                     {
-                        sw.WriteLine(n + ";" + d.ToString("F06") + ";" + result.ResDict[n].AUC.ToString("F03"));
+                        sw.WriteLine(n + ";" + d.ToString("F03") + ";" + result.ResDict[n].AUC.ToString("F06"));
                         sw.Flush();
                     }
                 }
