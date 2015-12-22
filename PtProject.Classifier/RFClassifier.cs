@@ -591,9 +591,9 @@ namespace PtProject.Classifier
 
                     int outliersCnt = (int)(sarr.Length * OutliersPrct);
                     for (int s = 0; s < outliersCnt; s++)
-                        _errors[sarr[s].Key] = -1;
+                        sarr[s] = new KeyValuePair<string, FType>(sarr[s].Key, sarr[s].Value);
 
-                    sarr = _errors.OrderByDescending(t => t.Value).ToArray();
+                    sarr = sarr.OrderByDescending(t => t.Value).ToArray();
                 }
                 if (IndexSortOrder.ToLower() == "asc")
                     sarr = _errors.OrderBy(t => t.Value).ToArray();
