@@ -216,108 +216,112 @@ namespace PtProject.Classifier
             Clear();
             var ret = new ClassifierResult();
 
-            var sw = new StreamWriter(new FileStream("auchist.csv", FileMode.Create, FileAccess.Write));
-            sw.WriteLine("time;n;train auc;test auc;stype");
-
-            // создаем первые классификаторы
-            for (int i = 0; i < BatchesInFirstStep; i++)
+            using (var sw = new StreamWriter(new FileStream("auchist.csv", FileMode.Create, FileAccess.Write)))
             {
-                DecisionBatch cls = null;
-                if (LoadFirstStepBatches)
+                sw.WriteLine("time;n;train auc;test auc;stype");
+
+                // создаем первые классификаторы
+                for (int i = 0; i < BatchesInFirstStep; i++)
                 {
-                    cls = DecisionBatch.Load(Environment.CurrentDirectory + "\\batches\\" + "batch_" + string.Format("{0:0000.#}", i) + ".dmp");
-                    if (cls==null)
+                    DecisionBatch cls = null;
+                    if (LoadFirstStepBatches)
+                    {
+                        cls = DecisionBatch.Load(Environment.CurrentDirectory + "\\batches\\" + "batch_" + string.Format("{0:0000.#}", i) + ".dmp");
+                        if (cls == null)
+                        {
+                            cls = CreateClassifier(useidx: false, parallel: true);
+                            if (savetrees) cls.Save();
+                        }
+                    }
+                    else
                     {
                         cls = CreateClassifier(useidx: false, parallel: true);
                         if (savetrees) cls.Save();
                     }
+
+                    // расчитываем метрики для тестового и обучающего множества (накопленные)
+                    var testRes = GetTestMetricsAccumulated(cls);
+                    var trainRes = GetTrainMetricsAccumulated(cls);
+
+                    Logger.Log("batch=" + i + " ok; test AUC=" + testRes.AUC.ToString("F10") + "; train AUC=" + trainRes.AUC.ToString("F10"));
+                    sw.WriteLine(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + ";" + i + ";" + trainRes.AUC + ";" + testRes.AUC + ";none");
+                    sw.Flush();
+
+                    ret.AddStepResult(testRes, i);
                 }
-                else
+
+                // далее создаем классификаторы с учетом ошибки предыдущих
+                for (int i = BatchesInFirstStep; i < TotalBatches; i++)
                 {
-                    cls = CreateClassifier(useidx: false, parallel: true);
-                    if (savetrees) cls.Save();
-                }
+                    DecisionBatch bestForest = null;
 
-                // расчитываем метрики для тестового и обучающего множества (накопленные)
-                var testRes = GetTestMetricsAccumulated(cls);
-                var trainRes = GetTrainMetricsAccumulated(cls);
-
-                Logger.Log("batch=" + i + " ok; test AUC=" + testRes.AUC.ToString("F10") + "; train AUC=" + trainRes.AUC.ToString("F10"));
-                sw.WriteLine(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + ";" + i + ";" + trainRes.AUC + ";" + testRes.AUC + ";none");
-                sw.Flush();
-
-                ret.AddStepResult(testRes, i);
-            }
-
-            // далее создаем классификаторы с учетом ошибки предыдущих
-            for (int i = BatchesInFirstStep; i < TotalBatches; i++)
-            {
-                DecisionBatch bestForest = null;
-
-                if (boost)
-                {
-                    // перестраиваем индексы плохо классифицированных объектов (плохие сначала)
-                    RefreshIndexes();
-
-                    double bestMetric = 1000000;
-                    int bestk = 0;
-
-                    // строим классификаторы и выбираем лучший
-                    for (int k=0;k< BatchesInBruteForce;k++)
+                    if (boost)
                     {
-                        var scls = CreateClassifier(useidx: true, parallel: true);
+                        // перестраиваем индексы плохо классифицированных объектов (плохие сначала)
+                        RefreshIndexes();
 
-                        // расчитываем метрики для тестового множества
-                        var trainCntRes = GetTrainClassificationCounts(scls);
-                        var testCntRes = GetTestClassificationCounts(scls);
-                        int cnt = scls.CountTreesInBatch;
+                        double bestMetric = 1000000;
+                        int bestk = 0;
 
-                        var rlist = new RocItem[_trainResult.Count]; // массив для оценки результата
-                        // находим статистики классификации
-                        int idx = 0;
-                        double epsilon = 0.0;
-                        foreach (string id in _trainResult.Keys)
+                        // строим классификаторы и выбираем лучший
+                        for (int k = 0; k < BatchesInBruteForce; k++)
                         {
-                            if (rlist[idx] == null) rlist[idx] = new RocItem();
+                            var scls = CreateClassifier(useidx: true, parallel: true);
 
-                            rlist[idx].Prob = (BruteMeasure == "train" ? trainCntRes[id] : testCntRes[id]) / cnt; // среднее по наблюдениям
-                            rlist[idx].Target = _trainResult[id];
-                            rlist[idx].Predicted = rlist[idx].Prob > 0.5 ? 1 : 0;
+                            // расчитываем метрики для тестового множества
+                            var trainCntRes = GetTrainClassificationCounts(scls);
+                            var testCntRes = GetTestClassificationCounts(scls);
+                            int cnt = scls.CountTreesInBatch;
 
-                            epsilon += Math.Abs(rlist[idx].Prob - rlist[idx].Target) * _errors[id];
+                            var rlist = new RocItem[_trainResult.Count]; // массив для оценки результата
+                                                                         // находим статистики классификации
+                            int idx = 0;
+                            double epsilon = 0.0;
+                            foreach (string id in _trainResult.Keys)
+                            {
+                                if (rlist[idx] == null) rlist[idx] = new RocItem();
 
-                            idx++;
-                        }   
+                                rlist[idx].Prob = (BruteMeasure == "train" ? trainCntRes[id] : testCntRes[id]) / cnt; // среднее по наблюдениям
+                                rlist[idx].Target = _trainResult[id];
+                                rlist[idx].Predicted = rlist[idx].Prob > 0.5 ? 1 : 0;
 
-                        Array.Sort(rlist, (o1, o2) => (1 - o1.Prob).CompareTo(1 - o2.Prob));
-                        var clsRes = ResultCalc.GetResult(rlist, 0.05);
+                                epsilon += Math.Abs(rlist[idx].Prob - rlist[idx].Target) * _errors[id];
 
-                        Logger.Log("sub cls #" + k + " auc=" + clsRes.AUC.ToString("F10") + " eps=" + epsilon + (epsilon < bestMetric ? " [best]" : ""));
+                                idx++;
+                            }
 
-                        if (epsilon < bestMetric)
-                        {
-                            bestMetric = epsilon;
-                            bestForest = scls;
-                            bestk = k;
+                            Array.Sort(rlist, (o1, o2) => (1 - o1.Prob).CompareTo(1 - o2.Prob));
+                            var clsRes = ResultCalc.GetResult(rlist, 0.05);
+
+                            Logger.Log("sub cls #" + k + " auc=" + clsRes.AUC.ToString("F10") + " eps=" + epsilon + (epsilon < bestMetric ? " [best]" : ""));
+
+                            if (epsilon < bestMetric)
+                            {
+                                bestMetric = epsilon;
+                                bestForest = scls;
+                                bestk = k;
+                            }
                         }
                     }
+                    else
+                    {
+                        bestForest = CreateClassifier(useidx: false, parallel: true);
+                    }
+
+
+                    var testRes = GetTestMetricsAccumulated(bestForest);
+                    var trainRes = GetTrainMetricsAccumulated(bestForest);
+                    if (savetrees) bestForest.Save();
+
+                    ret.AddStepResult(testRes, i);
+                    Logger.Log("batch=" + i + " ok; test AUC=" + testRes.AUC.ToString("F10") + "; train AUC=" + trainRes.AUC.ToString("F10"));
+                    sw.WriteLine(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + ";" + i + ";" + trainRes.AUC + ";" + testRes.AUC + ";" + IndexSortOrder);
+                    sw.Flush();
                 }
-                else
-                {
-                    bestForest = CreateClassifier(useidx: false, parallel: true);
-                }
 
-
-                var testRes = GetTestMetricsAccumulated(bestForest);
-                var trainRes = GetTrainMetricsAccumulated(bestForest);
-                if (savetrees) bestForest.Save();
-
-                ret.AddStepResult(testRes, i);
-                Logger.Log("batch=" + i + " ok; test AUC=" + testRes.AUC.ToString("F10") + "; train AUC=" + trainRes.AUC.ToString("F10"));
-                sw.WriteLine(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + ";" + i + ";" + trainRes.AUC + ";" + testRes.AUC + ";" + IndexSortOrder);
-                sw.Flush();
+                sw.Close();
             }
-
+            
             return ret;
         }
 
@@ -658,6 +662,8 @@ namespace PtProject.Classifier
             _testDataDict = new Dictionary<string, FType[]>(); // тестовые данные: id -> список строк на данный id
             _testResult = new Dictionary<string, int>(); // результат тестовых данных: id -> target
             _trainResult = new Dictionary<string, int>(); // результат обучающих данных: row_number -> target
+
+            if (_trainLoader.LearnRows == null) return;
 
             // модифицируем тестовые данные
             foreach (var row in _testLoader.Rows)
