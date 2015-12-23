@@ -213,6 +213,9 @@ namespace PtProject.Classifier
         /// </summary>
         public ClassifierResult Build(bool savetrees=false, bool boost=false)
         {
+            if (_trainLoader == null || _trainLoader.LearnRows == null)
+                throw new InvalidOperationException("train set is empty");
+
             Clear();
             var ret = new ClassifierResult();
 
@@ -591,7 +594,7 @@ namespace PtProject.Classifier
 
                     int outliersCnt = (int)(sarr.Length * OutliersPrct);
                     for (int s = 0; s < outliersCnt; s++)
-                        sarr[s] = new KeyValuePair<string, FType>(sarr[s].Key, sarr[s].Value);
+                        sarr[s] = new KeyValuePair<string, FType>(sarr[s].Key, -1);
 
                     sarr = sarr.OrderByDescending(t => t.Value).ToArray();
                 }
