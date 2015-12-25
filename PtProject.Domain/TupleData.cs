@@ -36,8 +36,12 @@ namespace PtProject.Domain
 
         public override int GetHashCode()
         {
-            //return Vals.Sum(obj => obj.GetHashCode());
-            return Vals.Aggregate(1, (current, obj) => current ^ obj.GetHashCode());
+            int code = 0;
+            foreach (var val in Vals)
+            {
+                code += val.GetHashCode();
+            }
+            return code;
         }
 
         public override string ToString()

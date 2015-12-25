@@ -6,11 +6,11 @@ using System.Threading.Tasks;
 
 namespace PtProject.Domain
 {
-    public class StatItem<T>
+    public class StatItem
     {
         public int Count;
         public int Targets;
-        public T TargetProb;
-        public T ItemProb;
+        public double TargetProb;
+        public double ItemProb;
     }
 }

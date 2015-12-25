@@ -391,9 +391,13 @@ namespace PtProject.Loader
             {
                 if (!StringValues.ContainsKey(str))
                 {
-                    var md5hash = ComputeMD5Hash(GetBytes(str));
-                    var hash4 = Compute4BytesHash(md5hash);
-                    int ival = BitConverter.ToInt32(md5hash, 0);
+                    int ival = -1;
+                    if (!string.IsNullOrWhiteSpace(str))
+                    {
+                        var md5hash = ComputeMD5Hash(GetBytes(str));
+                        var hash4 = Compute4BytesHash(md5hash);
+                        ival = (ushort)(BitConverter.ToInt32(md5hash, 0));
+                    }
                     StringValues.Add(str, ival);
                 }
 

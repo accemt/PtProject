@@ -22,7 +22,7 @@ namespace PtProject.Modifier
 
         static void Main(string[] args)
         {
-            if (args.Length < 3 || args.Length > 4)
+            if (args.Length < 2 || args.Length > 4)
             {
                 Logger.Log("usage: program.exe <data_in.csv> <data_out.csv> [conf=conf.csv] ");
                 return;

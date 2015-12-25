@@ -32,7 +32,7 @@ namespace PtProject.Dependency
 
             if (stype!="full" && stype!="short")
             {
-                Logger.Log("type can be only full or short");
+                Logger.Log("type can be only 'full' or 'short'");
                 return;
             }
 
@@ -55,6 +55,7 @@ namespace PtProject.Dependency
 
             // загружаем данные
             var loader = targetname!=null?(new DataLoader<FType>(targetname)) : new DataLoader<FType>();
+            //loader.MaxRowsLoaded = 10000;
             if (targetname!=null) loader.RemoveSkipColumn(targetname);
             loader.Load(filename);
             var cols = loader.FileIdxByColumn.Keys.ToArray();
@@ -73,7 +74,7 @@ namespace PtProject.Dependency
                                       Encoding.UTF8))
             {
                 if (counted.Count == 0)
-                    sw.WriteLine("Factor1;Factor2;src_cnt1;src_cnt2;mod_cnt1;mod_cnt2;s1;s2;s3;chi2;chi2max;chi2coeff;corr;corrabs;inf_val");
+                    sw.WriteLine("Factor1;Factor2;src_cnt1;src_cnt2;mod_cnt1;mod_cnt2;src_chi2;src_chi2max;src_chi2coeff;mod_chi2;mod_chi2max;mod_chi2coeff;corr;corrabs;inf_val");
 
                 for (int i = 0; i < cols.Length - 1; i++)
                 {
@@ -90,87 +91,51 @@ namespace PtProject.Dependency
 
                         if (counted.ContainsKey(col1) && counted[col1].ContainsKey(col2)) continue;
 
-                        int col1idx = loader.FileIdxByColumn[col1];
-                        int col2idx = loader.FileIdxByColumn[col2];
+                        int col1idx = loader.RowIdxByColumn[col1];
+                        int col2idx = loader.RowIdxByColumn[col2];
 
                         // просчитаны ли уже статиситки
                         bool stat1Exist = factorStatDict.ContainsKey(col1);
                         bool stat2Exist = factorStatDict.ContainsKey(col2);
 
                         // объекты статистик по признакам
-                        var col1Stats = stat1Exist ? factorStatDict[col1].ModifiedStat : new Dictionary<long, StatItem<FType>>();
-                        var col2Stats = stat2Exist ? factorStatDict[col2].ModifiedStat : new Dictionary<long, StatItem<FType>>();
-                        var scol1Stats = stat1Exist ? factorStatDict[col1].SourceStat : new Dictionary<FType, StatItem<FType>>();
-                        var scol2Stats = stat2Exist ? factorStatDict[col2].SourceStat : new Dictionary<FType, StatItem<FType>>();
+                        var col1Stats = stat1Exist ? factorStatDict[col1].ModifiedStat : new Dictionary<FType, StatItem>();
+                        var col2Stats = stat2Exist ? factorStatDict[col2].ModifiedStat : new Dictionary<FType, StatItem>();
+                        var scol1Stats = stat1Exist ? factorStatDict[col1].SourceStat : new Dictionary<FType, StatItem>();
+                        var scol2Stats = stat2Exist ? factorStatDict[col2].SourceStat : new Dictionary<FType, StatItem>();
 
                         var f1stat = stat1Exist ? factorStatDict[col1] : new FactorStat<FType>();
                         var f2stat = stat2Exist ? factorStatDict[col2] : new FactorStat<FType>();
 
-                        var commonStats = new Dictionary<TupleData, StatItem<FType>>();
+                        // статистики по парам признаков
+                        var commonStats = new Dictionary<TupleData, StatItem>(); // модифицированным
+                        var scommonStats = new Dictionary<TupleData, StatItem>(); // исходным
 
-                        int allTargets = 0; // всего ненулевых целевых значений
+                        // находим среднее, дисперсию и корреляцию по признакам
+                        var colStats = PairStat<FType>.GetPairStat(loader, col1, col2);
 
-                        // сумма значений для поиска среднего
-                        FType sum1 = 0;
-                        FType sum2 = 0;
-
-                        int rowscount = loader.Rows.Count; // всего строк
-
-                        // сначала находим матожидание
-                        foreach (var row in loader.Rows)
-                        {
-                            FType fval1 = row.Coeffs[col1idx];
-                            FType fval2 = row.Coeffs[col2idx];
-
-                            sum1 += fval1;
-                            sum2 += fval2;
-                        }
-
-                        f1stat.Avg = sum1 / rowscount; // среднее по первому признаку
-                        f2stat.Avg = sum2 / rowscount; // среднее по второму признаку
-
-                        // теперь находим дисперсию и корреляцию
-                        FType ds1 = 0;
-                        FType ds2 = 0;
-                        FType cov = 0;
-                        FType disp1 = 0;
-                        FType disp2 = 0;
-                        foreach (var row in loader.Rows)
-                        {
-                            ds1 = (row.Coeffs[col1idx] - f1stat.Avg);
-                            disp1 += ds1 * ds1;
-
-                            ds2 = (row.Coeffs[col2idx] - f2stat.Avg);
-                            disp2 += ds2 * ds2;
-
-                            cov += ds1 * ds2;
-                        }
-
-                        f1stat.Stddev = (FType)Math.Sqrt(disp1 / ((double)rowscount - 1));
-                        f2stat.Stddev = (FType)Math.Sqrt(disp2 / ((double)rowscount - 1));
-
-                        FType div = (FType)(Math.Sqrt(disp1 * disp2));
-
-                        FType? corr = null; // коэффициент корреляции
-                        if (Math.Abs(div) > 0.000000000000001) corr = cov / div;
+                        int rowscount = loader.TotalDataLines; // всего строк
+                        int allTargets = 0; // всего целевых строк
 
                         // собираем общую статистику по всем строкам
                         foreach (var row in loader.Rows)
                         {
+                            // исходные признаки
                             FType fval1 = row.Coeffs[col1idx];
                             FType fval2 = row.Coeffs[col2idx];
 
-                            long val1 = (long)(Math.Round((fval1 - f1stat.Avg) / f1stat.Stddev * factor));
-                            long val2 = (long)(Math.Round((fval2 - f2stat.Avg) / f2stat.Stddev * factor));
+                            // модифицированные признаки
+                            FType val1 = (long)(Math.Round((fval1 - colStats.F1Avg) / colStats.F1Stddev * factor));
+                            FType val2 = (long)(Math.Round((fval2 - colStats.F2Avg) / colStats.F2Stddev * factor));
 
                             if (!stat1Exist) // восможно уже просчитана
                             {
-                                if (!col1Stats.ContainsKey(val1)) col1Stats.Add(val1, new StatItem<FType>());
+                                if (!col1Stats.ContainsKey(val1)) col1Stats.Add(val1, new StatItem());
                                 var stat1 = col1Stats[val1];
                                 stat1.Count++; // статистика встречаемости значений первого признака (модифицированного)
                                 stat1.Targets += row.Target > 0 ? 1 : 0;
 
-                                if (!scol1Stats.ContainsKey(fval1)) scol1Stats.Add(fval1, new StatItem<FType>());
+                                if (!scol1Stats.ContainsKey(fval1)) scol1Stats.Add(fval1, new StatItem());
                                 var sstat1 = scol1Stats[fval1];
                                 sstat1.Count++; // статистика встречаемости значений первого признака (исходного)
                                 sstat1.Targets += row.Target > 0 ? 1 : 0;
@@ -178,12 +143,12 @@ namespace PtProject.Dependency
 
                             if (!stat2Exist) // восможно уже просчитана
                             {
-                                if (!col2Stats.ContainsKey(val2)) col2Stats.Add(val2, new StatItem<FType>());
+                                if (!col2Stats.ContainsKey(val2)) col2Stats.Add(val2, new StatItem());
                                 var stat2 = col2Stats[val2];
                                 stat2.Count++; // статистика встречаемости значений первого признака (модифицированного)
                                 stat2.Targets += row.Target > 0 ? 1 : 0;
 
-                                if (!scol2Stats.ContainsKey(fval2)) scol2Stats.Add(fval2, new StatItem<FType>());
+                                if (!scol2Stats.ContainsKey(fval2)) scol2Stats.Add(fval2, new StatItem());
                                 var sstat2 = scol2Stats[fval2];
                                 sstat2.Count++; // статистика встречаемости значений первого признака (исходного)
                                 sstat2.Targets += row.Target > 0 ? 1 : 0;
@@ -191,10 +156,17 @@ namespace PtProject.Dependency
 
                             allTargets += row.Target > 0 ? 1 : 0;
 
+                            // статистики астречаемости пар признаков (модифицированные)
                             var tuple = new TupleData(new List<object> { val1, val2 });
-                            if (!commonStats.ContainsKey(tuple)) commonStats.Add(tuple, new StatItem<FType>());
+                            if (!commonStats.ContainsKey(tuple)) commonStats.Add(tuple, new StatItem());
                             var stat = commonStats[tuple];
                             stat.Count++;  // пары признаков
+
+                            // статистики астречаемости пар признаков (исходные)
+                            var stuple = new TupleData(new List<object> { fval1, fval2 });
+                            if (!scommonStats.ContainsKey(stuple)) scommonStats.Add(stuple, new StatItem());
+                            var fstat = scommonStats[stuple];
+                            fstat.Count++;  // пары признаков
                         }
 
                         // сохраняем расчитанные признаки
@@ -214,11 +186,16 @@ namespace PtProject.Dependency
                         }
 
 
-                        // далее идет расчет зависимостей признаков
-
+                        // далее идет расчет вероятностей встречи признаков
                         if (!stat1Exist)
                         {
                             foreach (var v in col1Stats.Values)
+                            {
+                                // вероятность встретить значение первого признака
+                                v.ItemProb = v.Count / (FType)rowscount;
+                            }
+
+                            foreach (var v in scol1Stats.Values)
                             {
                                 // вероятность встретить значение первого признака
                                 v.ItemProb = v.Count / (FType)rowscount;
@@ -232,6 +209,12 @@ namespace PtProject.Dependency
                                 // вероятность встретить значение второго признака
                                 v.ItemProb = v.Count / (FType)rowscount;
                             }
+
+                            foreach (var v in scol2Stats.Values)
+                            {
+                                // вероятность встретить значение второго признака
+                                v.ItemProb = v.Count / (FType)rowscount;
+                            }
                         }
 
                         foreach (var v in commonStats.Values)
@@ -240,84 +223,39 @@ namespace PtProject.Dependency
                             v.ItemProb = v.Count / (FType)rowscount;
                         }
 
-                        double s1 = 0;
-                        double s2 = 0;
-                        double s3 = 0;
-                        double chi2 = 0;
-
-                        // берем по каждой паре признаков
-                        foreach (var k1 in col1Stats.Keys)
+                        foreach (var v in scommonStats.Values)
                         {
-                            foreach (var k2 in col2Stats.Keys)
-                            {
-                                double p1 = col1Stats[k1].ItemProb; // вероятность первого
-                                double p2 = col2Stats[k2].ItemProb; // вероятность второго
-
-                                // составляем пару
-                                var t = new TupleData(new List<object> { k1, k2 });
-
-                                // вероятность пары (может быть нулевой)
-                                double p = commonStats.ContainsKey(t) ? commonStats[t].ItemProb : 0;
-
-                                // количество пар (может быть нуль)
-                                int pn = commonStats.ContainsKey(t) ? commonStats[t].Count : 0;
-
-                                // разница между вероятностью встретьи пару и вероятностью встретить первый * второй
-                                double diff = Module(p1 * p2 - p);
-
-                                // статиситка хи-квадрат
-                                double chidiff = (pn - rowscount * p1 * p2);
-
-                                s1 += diff;
-                                s2 += diff * p;
-
-                                chi2 += (chidiff * chidiff) / (rowscount * p1 * p2);
-                            }
+                            // вероятность встретить пару
+                            v.ItemProb = v.Count / (FType)rowscount;
                         }
 
-                        int cnt = f1stat.ModifiedCount * f2stat.ModifiedCount;
-                        int cnt2 = (f1stat.ModifiedCount - 1) * (f2stat.ModifiedCount - 1);
-                        s3 = s1 / cnt;
-                        double chi2max = Util.InvChi2CDF(cnt2, 0.95);
+
+                        double chi2 = 0; // хи-квадрат по модифицированным признакам
+                        double schi2 = 0; // хи-квадрат по исхдным признакам
+
+                        // высчитываем статистики по модифицированным признакам
+                        chi2 = GetChi2Stat(col1Stats, col2Stats, commonStats, rowscount);
+
+                        // высчитываем статистики по исходным признакам
+                        schi2 = GetChi2Stat(scol1Stats, scol2Stats, scommonStats, rowscount);
+
+                        int cnt = (f1stat.ModifiedCount - 1) * (f2stat.ModifiedCount - 1);
+                        int scnt = (f1stat.SourceCount - 1) * (f2stat.SourceCount - 1);
+
+                        double chi2max = Util.InvChi2CDF(cnt, 0.95);
+                        double schi2max = Util.InvChi2CDF(scnt, 0.95);
                         double chifactor = chi2 / chi2max;
+                        double schifactor = schi2 / schi2max;
 
 
                         // information value
                         double iv = 0;
-                        if (col1 == loader.TargetName || col2==loader.TargetName)
+                        if (col1 == loader.TargetName || col2 == loader.TargetName)
                         {
                             if (col1 == loader.TargetName)
-                            {
-                                foreach (long v2 in f2stat.ModifiedStat.Keys)
-                                {
-                                    double tprob = f2stat.ModifiedStat[v2].Targets / (double)allTargets;
-                                    double ntprob = (f2stat.ModifiedStat[v2].Count - f2stat.ModifiedStat[v2].Targets) / (double)(rowscount - allTargets);
-                                    double woe = Math.Log(tprob / ntprob) * 100;
-                                    double ivp = (tprob * 100 - ntprob * 100) * Math.Log(tprob / ntprob);
-                                    if (ntprob < 0.00000000000001 || tprob < 0.00000000000001)
-                                    {
-                                        woe = 0;
-                                        ivp = 0;
-                                    }
-                                    iv += ivp;
-                                }
-                            }
+                                iv = GetInvormationValue(f2stat, allTargets, rowscount);
                             else
-                            {
-                                foreach (long v1 in f1stat.ModifiedStat.Keys)
-                                {
-                                    double tprob = f1stat.ModifiedStat[v1].Targets / (double)allTargets;
-                                    double ntprob = (f1stat.ModifiedStat[v1].Count - f1stat.ModifiedStat[v1].Targets) / (double)(rowscount - allTargets);
-                                    double woe = Math.Log(tprob / ntprob) * 100;
-                                    double ivp = (tprob * 100 - ntprob * 100) * Math.Log(tprob / ntprob);
-                                    if (ntprob < 0.00000000000001 || tprob < 0.00000000000001)
-                                    {
-                                        woe = 0;
-                                        ivp = 0;
-                                    }
-                                    iv += ivp;
-                                }
-                            }
+                                iv = GetInvormationValue(f1stat, allTargets, rowscount);
                         }
 
                         sw.WriteLine("{0};{1};{2};{3};{4};{5};{6};{7};{8};{9};{10};{11};{12};{13};{14}",
@@ -327,14 +265,14 @@ namespace PtProject.Dependency
                             f2stat.SourceCount,
                             f1stat.ModifiedCount,
                             f2stat.ModifiedCount,
-                            s1.ToString("F09", CultureInfo.InvariantCulture),
-                            s2.ToString("F09", CultureInfo.InvariantCulture),
-                            s3.ToString("F09", CultureInfo.InvariantCulture),
+                            schi2.ToString("F09", CultureInfo.InvariantCulture),
+                            schi2max,
+                            schifactor,
                             chi2.ToString("F09", CultureInfo.InvariantCulture),
                             chi2max,
                             chifactor,
-                            corr.ToString(),
-                            Math.Abs(Convert.ToDecimal(corr)).ToString(),
+                            colStats.Correlation.ToString(),
+                            Math.Abs(Convert.ToDecimal(colStats.Correlation)).ToString(),
                             iv.ToString("F09", CultureInfo.InvariantCulture)
                         );
                         sw.Flush();
@@ -345,6 +283,58 @@ namespace PtProject.Dependency
 
                 sw.Close();
             }
+        }
+
+        private static double GetInvormationValue(FactorStat<double> f2stat, int allTargets, int rowscount)
+        {
+            double iv = 0;
+
+            foreach (long v2 in f2stat.ModifiedStat.Keys)
+            {
+                double tprob = f2stat.ModifiedStat[v2].Targets / (double)allTargets;
+                double ntprob = (f2stat.ModifiedStat[v2].Count - f2stat.ModifiedStat[v2].Targets) / (double)(rowscount - allTargets);
+                double woe = Math.Log(tprob / ntprob) * 100;
+                double ivp = (tprob * 100 - ntprob * 100) * Math.Log(tprob / ntprob);
+                if (ntprob < 0.00000000000001 || tprob < 0.00000000000001)
+                {
+                    woe = 0;
+                    ivp = 0;
+                }
+                iv += ivp;
+            }
+
+            return iv;
+        }
+
+        private static double GetChi2Stat(Dictionary<FType, StatItem> col1Stats,
+            Dictionary<FType, StatItem> col2Stats,
+            Dictionary<TupleData, StatItem> commonStats,
+            int rowscount)
+        {
+            double chi2 = 0;
+
+            foreach (var k1 in col1Stats.Keys)
+            {
+                foreach (var k2 in col2Stats.Keys)
+                {
+                    // составляем пару
+                    var t = new TupleData(new List<object> { k1, k2 });
+                    // количество пар (может быть нуль)
+                    int pn = 0;
+                    if (commonStats.ContainsKey(t))
+                        pn = commonStats[t].Count;
+
+                    // модифицированные признаки
+                    double p1 = col1Stats[k1].ItemProb; // вероятность первого
+                    double p2 = col2Stats[k2].ItemProb; // вероятность второго
+
+                    // статиситка хи-квадрат
+                    double chidiff = (pn - rowscount * p1 * p2);
+                    chi2 += (chidiff * chidiff) / (rowscount * p1 * p2);
+                }
+            }
+
+            return chi2;
         }
 
         private static Dictionary<string, Dictionary<string, int>> LoadCountedData(string statname)
