@@ -296,6 +296,8 @@ namespace PtProject.Classifier
                             Array.Sort(rlist, (o1, o2) => (1 - o1.Prob).CompareTo(1 - o2.Prob));
                             var clsRes = ResultCalc.GetResult(rlist, 0.05);
 
+                            epsilon *= (1 - clsRes.AUC);
+
                             Logger.Log("sub cls #" + k + " auc=" + clsRes.AUC.ToString("F10") + " eps=" + epsilon + (epsilon < bestMetric ? " [best]" : ""));
 
                             if (epsilon < bestMetric)

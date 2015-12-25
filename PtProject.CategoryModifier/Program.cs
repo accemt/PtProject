@@ -15,7 +15,7 @@ namespace PtProject.CategoryModifier
     {
         static DataLoader<FType> _loader = new DataLoader<FType>();
         static object _obj = new object();
-        static Dictionary<TupleData, StatItem<FType>> _targDistr = new Dictionary<TupleData, StatItem<FType>>();
+        static Dictionary<TupleData, StatItem> _targDistr = new Dictionary<TupleData, StatItem>();
 
         static void Main(string[] args)
         {
@@ -50,7 +50,7 @@ namespace PtProject.CategoryModifier
                 _loader.CollectDistrStat = true;
                 _loader.Load(dataPath);
 
-                var statDict = new Dictionary<TupleData, Dictionary<TupleData, StatItem<FType>>>();
+                var statDict = new Dictionary<TupleData, Dictionary<TupleData, StatItem>>();
 
                 // collecting stats
                 int idx = 0;
@@ -63,13 +63,13 @@ namespace PtProject.CategoryModifier
                     var cval = iter.Current;
                     var ftuple = new TupleData(cval);
 
-                    statDict.Add(ftuple, new Dictionary<TupleData, StatItem<FType>>());
+                    statDict.Add(ftuple, new Dictionary<TupleData, StatItem>());
 
                     foreach (var row in _loader.Rows)
                     {
                         var vtuple = CreateValueTuple(cval, row);
                         if (!statDict[ftuple].ContainsKey(vtuple))
-                            statDict[ftuple].Add(vtuple, new StatItem<FType>());
+                            statDict[ftuple].Add(vtuple, new StatItem());
                         if (row.Target<=1)
                         {
                             statDict[ftuple][vtuple].Count++;
