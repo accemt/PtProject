@@ -276,19 +276,19 @@ namespace PtProject.Classifier
                             var testCntRes = GetTestClassificationCounts(scls);
                             int cnt = scls.CountTreesInBatch;
 
-                            var rlist = new RocItem[_trainResult.Count]; // массив для оценки результата
+                            var rlist = new RocItem[(BruteMeasure == "train" ? _trainResult.Count : _testResult.Count)]; // массив для оценки результата
                                                                          // находим статистики классификации
                             int idx = 0;
                             double epsilon = 0.0;
-                            foreach (string id in _trainResult.Keys)
+                            foreach (string id in (BruteMeasure == "train" ? _trainResult.Keys : _testResult.Keys))
                             {
                                 if (rlist[idx] == null) rlist[idx] = new RocItem();
 
                                 rlist[idx].Prob = (BruteMeasure == "train" ? trainCntRes[id] : testCntRes[id]) / cnt; // среднее по наблюдениям
-                                rlist[idx].Target = _trainResult[id];
+                                rlist[idx].Target = (BruteMeasure == "train" ? _trainResult[id] : _testResult[id]);
                                 rlist[idx].Predicted = rlist[idx].Prob > 0.5 ? 1 : 0;
 
-                                epsilon += Math.Abs(rlist[idx].Prob - rlist[idx].Target) * _errors[id];
+                                epsilon += Math.Abs(rlist[idx].Prob - rlist[idx].Target) * (BruteMeasure == "train" ? _errors[id] : 1);
 
                                 idx++;
                             }

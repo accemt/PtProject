@@ -173,7 +173,8 @@ namespace PtProject.Calc
                     foreach (var row in loader.Rows)
                     {
                         double prob = probDict[row.Id] / totaltrees;
-                        sw.WriteLine(row.Id + ";" + prob.ToString("F06") + ";" + row.Target);
+                        string targStr = target != null ? (";" + row.Target) : null;
+                        sw.WriteLine(row.Id + ";" + prob + targStr);
                     }
 
                     sw.Close();
