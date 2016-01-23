@@ -45,7 +45,7 @@ namespace PtProject.Eval
             string ret = expr;
             foreach (Match m in matches)
             {
-                string field = m.Groups["field"].Value;
+                string field = m.Groups["field"].Value.ToLower();
                 string mval = m.Value;
 
                 ret = ret.Replace(mval, "v[\"" + field + "\"]");

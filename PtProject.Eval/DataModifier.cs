@@ -24,7 +24,8 @@ namespace PtProject.Eval
             int idx = 0;
             foreach (string row in rows)
             {
-                string trow = row.ToLower().Trim();
+                if (row == null) continue;
+                string trow = row.Trim();
                 if (trow.StartsWith("#")) continue;
                 if (string.IsNullOrWhiteSpace(trow)) continue;
                 string[] blocks = trow.Split(';');

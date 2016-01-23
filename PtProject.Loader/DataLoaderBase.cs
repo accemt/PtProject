@@ -62,5 +62,6 @@ namespace PtProject.Loader
         public static Dictionary<string, int> StringValues = new Dictionary<string, int>();
 
         public char SplitSymbol;
+        public string DateFormat;
     }
 }

@@ -72,6 +72,11 @@ namespace PtProject.Loader
             var cval = ConfigReader.Read("SplitSymbol");
             if (cval!=null)
                 SplitSymbol = cval[0];
+
+            DateFormat = "yyyy-MM-dd";
+            var dfval = ConfigReader.Read("DateFormat");
+            if (dfval != null)
+                DateFormat = dfval;
         }
 
         public DataLoader(string target) : this()
@@ -389,19 +394,29 @@ namespace PtProject.Loader
             T fval = default(T);
             if (!isok)
             {
-                if (!StringValues.ContainsKey(str))
-                {
-                    int ival = -1;
-                    if (!string.IsNullOrWhiteSpace(str))
-                    {
-                        var md5hash = ComputeMD5Hash(GetBytes(str));
-                        var hash4 = Compute4BytesHash(md5hash);
-                        ival = (ushort)(BitConverter.ToInt32(md5hash, 0));
-                    }
-                    StringValues.Add(str, ival);
-                }
+                DateTime dval;
+                bool dateok = DateTime.TryParseExact(str, DateFormat, null, DateTimeStyles.None, out dval);
 
-                val = StringValues[str];
+                if (dateok)
+                {
+                    DateTime def = new DateTime();
+                    val = (dval - def).TotalDays;
+                }
+                else
+                {
+                    if (!StringValues.ContainsKey(str))
+                    {
+                        int ival = -1;
+                        if (!string.IsNullOrWhiteSpace(str))
+                        {
+                            var md5hash = ComputeMD5Hash(GetBytes(str));
+                            var hash4 = Compute4BytesHash(md5hash);
+                            ival = (ushort)(BitConverter.ToInt32(md5hash, 0));
+                        } 
+                        StringValues.Add(str, ival);
+                    }
+                    val = StringValues[str];
+                }
             }
             fval = (T)Convert.ChangeType(val, typeof(T));
             return fval;
