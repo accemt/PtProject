@@ -12,7 +12,7 @@ using FType = System.Double;
 
 namespace PtProject.Classifier
 {
-    public class SVMClassifier : IClassifier
+    public class SVMClassifier : AbstractClassifier
     {
         private DataLoader<FType> _trainLoader;
         private DataLoader<FType> _testLoader;
@@ -22,7 +22,6 @@ namespace PtProject.Classifier
         private Problem _trainProblem;
         private Problem _testProblem;
         private Model _model;
-        private int _nclasses = 2;
 
 
         private string _trainPath;
@@ -31,7 +30,7 @@ namespace PtProject.Classifier
         private object _obj = new object();
 
 
-        public ClassifierResult Build()
+        public override ClassifierResult Build()
         {
             //For this example (and indeed, many scenarios), the default
             //parameters will suffice.
@@ -110,7 +109,7 @@ namespace PtProject.Classifier
             return clsRes;
         }
 
-        public double[] PredictProba(double[] sarr)
+        public override double[] PredictProba(double[] sarr)
         {
             Node[] x = new Node[sarr.Length];
             for (int j = 0; j < sarr.Length; j++)
@@ -123,8 +122,13 @@ namespace PtProject.Classifier
             return result;
         }
 
-        public void LoadData(string trainPath, string testPath, string ids, string target)
+        public override void LoadData()
         {
+            string trainPath="";
+            string testPath="";
+            string ids="";
+            string target="";
+
             _trainPath = trainPath;
             _testPath = testPath;
             _target = target;
@@ -187,6 +191,11 @@ namespace PtProject.Classifier
         {
             _problemCreator.ReadRow(row.Coeffs, row.Target);
             return _obj;
+        }
+
+        public override int LoadClassifier()
+        {
+            throw new NotImplementedException();
         }
     }
 }

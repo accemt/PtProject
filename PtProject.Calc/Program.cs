@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -15,40 +16,41 @@ namespace PtProject.Calc
     {
         public static void Main(string[] args)
         {
-            if (args.Length < 2 || args.Length > 6)
-            {
-                Logger.Log("usage: program.exe <data.csv> <conf.csv> [bucketsize=0 [savestat=false [id1,id2=, [target]]]]");
-                return;
-            }
+            string DataPath = ConfigReader.Read("DataPath");
+            string ConfPath = ConfigReader.Read("ConfPath");
+            int BucketSize = int.Parse(ConfigReader.Read("BucketSize"));
+            string ClassifierType = ConfigReader.Read("ClassifierType");
+            string IdName = ConfigReader.Read("IdName");
+            string TargetName = ConfigReader.Read("TargetName");
 
-            string dataPath = args[0];
-            string confPath = args[1];
-            int bucketsize = int.Parse(args.Length >= 3 ? args[2] : "0");
-            string save = args.Length >= 4 ? args[3] : "false";
-            string ids = args.Length >= 5 ? args[4] : ",";
-            string target = args.Length >= 6 ? args[5] : null;
-
-            Logger.Log("data = " + dataPath);
-            Logger.Log("conf = " + confPath);
-            Logger.Log("savestat = " + save);
+            Logger.Log("DataPath = " + DataPath);
+            Logger.Log("ConfPath = " + ConfPath);
+            Logger.Log("ClassifierType = " + ClassifierType);
+            Logger.Log("IdName = " + IdName);
+            Logger.Log("TargetName = " + TargetName);
 
             try
             {
                 // loading modifier
-                var modifier = new DataModifier(File.ReadAllLines(confPath));
+                DataModifier modifier = null;
+                if (ConfPath != null)
+                    modifier = new DataModifier(File.ReadAllLines(ConfPath));
 
-                if (bucketsize > 0)
-                {
-                    // by tree bucket mode
-                    Logger.Log("by tree bucket mode, bucket = " + bucketsize);
-                    ByBucketMode(dataPath, ids, target, bucketsize, modifier);
-                }
-                else
-                {
-                    // by client mode
-                    Logger.Log("by client mode");
-                    ByClientMode(dataPath, ids, target, modifier);
-                }
+                // loading classifier
+                AbstractClassifier cls = LoadClassifier(ClassifierType);
+
+                //if (BucketSize > 0)
+                //{
+                //    // by tree bucket mode
+                //    Logger.Log("by tree bucket mode, BucketSize = " + BucketSize);
+                //    ByBucketMode(DataPath, IdName, TargetName, BucketSize, modifier);
+                //}
+                //else
+                //{
+                // by client mode
+                Logger.Log("by client mode");
+                ByClientMode(DataPath, IdName, TargetName, modifier, cls);
+                //}
             }
             catch (Exception e)
             {
@@ -56,13 +58,20 @@ namespace PtProject.Calc
             }
         }
 
-        private static void ByClientMode(string dataPath, string ids, string target, DataModifier modifier)
+        private static AbstractClassifier LoadClassifier(string ClassifierType)
+        {
+            AbstractClassifier cls = null;
+            var assm = Assembly.LoadFrom("PtProject.Classifier.dll");
+            Type clsType = assm.GetType(ClassifierType);
+            cls = (AbstractClassifier)Activator.CreateInstance(clsType);
+            return cls;
+        }
+
+        private static void ByClientMode(string dataPath, string ids, string target, DataModifier modifier, AbstractClassifier cls)
         {
             try
             {
-                // loading classifier
-                var cls = new RFClassifier();
-                cls.LoadTrees(null);
+                cls.LoadClassifier();
 
                 // loading data
                 var loader = target == null ? new DataLoader() : new DataLoader(target);
@@ -81,20 +90,13 @@ namespace PtProject.Calc
                     foreach (var row in loader.Rows)
                     {
                         idx++;
-
-                        var vals = new Dictionary<string, double>();
-                        for (int i = 0; i < row.Coeffs.Length; i++)
-                        {
-                            string colname = loader.RowColumnByIdx[i];
-                            vals.Add(colname, row.Coeffs[i]);
-                        }
-                        var mvals = modifier.GetModifiedDataVector(vals);
+                        double[] mvals = GetRowValues(modifier, loader, row);
                         var prob = cls.PredictProba(mvals);
 
                         string targStr = target != null ? (";" + row.Target) : null;
                         sw.WriteLine(row.Id + ";" + prob[1] + targStr);
 
-                        if (idx % 12345 == 0)
+                        if (idx % 123 == 0)
                         {
                             Logger.Log(idx + " lines writed;");
                             sw.Flush();
@@ -112,6 +114,22 @@ namespace PtProject.Calc
             }
         }
 
+        private static double[] GetRowValues(DataModifier modifier, DataLoader loader, Domain.DataRow<float> row)
+        {
+            if (modifier == null)
+                return Array.ConvertAll(row.Coeffs, x => (double)x);
+
+            var vals = new Dictionary<string, double>();
+            for (int i = 0; i < row.Coeffs.Length; i++)
+            {
+                string colname = loader.RowColumnByIdx[i];
+                vals.Add(colname, row.Coeffs[i]);
+            }
+            var mvals = modifier.GetModifiedDataVector(vals);
+            return mvals;
+        }
+
+        /*
         private static void ByBucketMode(string dataPath, string ids, string target, int bucketsize, DataModifier modifier)
         {
             try
@@ -185,5 +203,6 @@ namespace PtProject.Calc
                 Logger.Log(e);
             }
         }
+        */
     }
 }

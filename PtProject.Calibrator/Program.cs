@@ -21,43 +21,47 @@ namespace PtProject.Calibrator
                 return;
             }
 
-            string trainPath = args[0];
-            string testPath = args[1];
-            string target = args[2];
-            string ids = args.Length >= 4 ? args[3] : ",";
-            string depstatPath = args.Length >= 5 ? args[4] : null;
-            string measureField = args.Length >= 6 ? args[5] : "Chi2Coeff";
+            string Mode = ConfigReader.Read("Mode");
+            string TrainPath = ConfigReader.Read("TrainPath");
+            string TestPath = ConfigReader.Read("TestPath");
+            string IdName = ConfigReader.Read("IdName");
+            string TargetName = ConfigReader.Read("TargetName");
+            string DepstatPath = ConfigReader.Read("DepstatPath");
+            string MeasureField = ConfigReader.Read("MeasureField");
 
-            Logger.Log("train = " + trainPath);
-            Logger.Log("test = " + testPath);
-            Logger.Log("target = " + target);
-            Logger.Log("ids = " + ids);
+            Logger.Log("Mode = " + Mode);
+            Logger.Log("TrainPath = " + TrainPath);
+            Logger.Log("TestPath = " + TestPath);
+            Logger.Log("TargetName = " + TargetName);
+            Logger.Log("IdName = " + IdName);
 
-            if (depstatPath == null) // тогда подбираем параметры d и ntrees
+            if (Mode == "nd") // тогда подбираем параметры d и ntrees
             {
                 Logger.Log("ntrees-d mode");
-                CreateRFStat(trainPath, testPath, ids, target);
+                CreateRFStat(TrainPath, TestPath, IdName, TargetName);
             }
             else // подбираем параметры зависимости с целевой и попарной мерой
             {
                 Logger.Log("td-fd mode");
-                Logger.Log("depstat = " + depstatPath);
-                Logger.Log("measure = " + measureField);
-                CreateDepStat(trainPath, testPath, depstatPath, ids, target, measureField);
+                Logger.Log("depstat = " + DepstatPath);
+                Logger.Log("measure = " + MeasureField);
+                CreateDepStat(TrainPath, TestPath, IdName, TargetName, DepstatPath, MeasureField);
             }
         }
 
-        private static void CreateDepStat(string trainPath, string testPath, string depstatPath, string ids, string target, string measureField)
+        private static void CreateDepStat(string trainPath, string testPath, string ids, string target, string depstatPath, string measureField)
         {
             var fmngr = new FactorManager();
             fmngr.Load(depstatPath, target, measureField);
 
             var fdList = new List<double>();
-            fdList.Add(0); 
+            fdList.Add(0);
+            fdList.Add(0.5);
+            fdList.Add(1);
+            fdList.Add(1.5);
             fdList = fdList.OrderByDescending(c => c).ToList();
 
             var tdList = new List<double>(fmngr.GetTargetValues());
-            //tdList = tdList.OrderBy(c => c).ToList();
             tdList = tdList.OrderByDescending(c => c).ToList();
 
             using (var sw = new StreamWriter(new FileStream("depstat.csv", FileMode.Create, FileAccess.Write)))
@@ -86,10 +90,10 @@ namespace PtProject.Calibrator
                                 foreach (string variable in fmngr.FactorDict.Keys)
                                 {
                                     if (!fdict.ContainsKey(variable))
-                                        cls.AddDropColumns(new string[] { variable });
+                                        cls.AddDropColumn(variable);
                                 }
 
-                                cls.LoadData(trainPath, testPath, ids, target);
+                                cls.LoadData();
                                 var result = cls.Build();
                                 countedDict.Add(vstr, result);
                             }
@@ -117,29 +121,28 @@ namespace PtProject.Calibrator
             using (var sw = new StreamWriter(new FileStream("rfstat.csv", FileMode.Create, FileAccess.Write)))
             {
                 sw.WriteLine("n;d;auc");
-                double d = 0.01;
+                double StartCoeff = 0.01;
                 string sd = ConfigReader.Read("StartCoeff");
                 if (sd != null)
-                    d = double.Parse(sd.Replace(',', '.'), CultureInfo.InvariantCulture);
+                    StartCoeff = double.Parse(sd.Replace(',', '.'), CultureInfo.InvariantCulture);
 
-                double delta = 0.05;
+                double Delta = 0.05;
                 string sdl = ConfigReader.Read("Delta");
                 if (sdl!=null)
-                    delta = double.Parse(sdl.Replace(',', '.'), CultureInfo.InvariantCulture);
+                    Delta = double.Parse(sdl.Replace(',', '.'), CultureInfo.InvariantCulture);
 
-                Logger.Log("start d = " + d);
-                Logger.Log("delta = " + delta);
+                Logger.Log("StartCoeff = " + StartCoeff);
+                Logger.Log("Delta = " + Delta);
 
-                for (; d <= 1; d += delta)
+                for (; StartCoeff <= 1; StartCoeff += Delta)
                 {
                     var cls = new RFClassifier();
-                    cls.RFCoeff = d;
-                    cls.PrintParams();
-                    cls.LoadData(trainPath, testPath, ids, target);
+                    cls.LoadData();
+                    cls.RFCoeff = StartCoeff;
                     var result = cls.Build();
                     foreach (int n in result.ResDict.Keys)
                     {
-                        sw.WriteLine(n + ";" + d.ToString("F03") + ";" + result.ResDict[n].AUC.ToString("F06"));
+                        sw.WriteLine(n + ";" + StartCoeff.ToString("F03") + ";" + result.ResDict[n].AUC.ToString("F06"));
                         sw.Flush();
                     }
                 }

@@ -44,7 +44,7 @@ namespace PtProject.Domain.Util
             sb.AppendLine(DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss: ") + methodname + ": EXCEPTION: "  + e.Message);
             if (e.InnerException != null)
             {
-                sb.AppendLine(DateTime.Now.ToString("\t\t\t: ") + methodname + ": " + e.InnerException.Message);
+                sb.AppendLine(DateTime.Now.ToString("\t: ") + ": " + e.InnerException.Message);
             }
 
             lock (SyncObj)

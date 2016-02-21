@@ -22,29 +22,23 @@ namespace PtProject.Modifier
 
         static void Main(string[] args)
         {
-            if (args.Length < 2 || args.Length > 4)
-            {
-                Logger.Log("usage: program.exe <data_in.csv> <data_out.csv> [conf=conf.csv] ");
-                return;
-            }
+            string DataInPath = ConfigReader.Read("DataInPath");
+            string DataOutPath = ConfigReader.Read("DataOutPath");
+            string ConfigPath = ConfigReader.Read("ConfigPath");
 
-            string dataInPath = args[0];
-            string dataOutPath = args[1];
-            string confPath = args.Length >=3 ? args[2] : "conf.csv";
-
-            Logger.Log("data_in: " + dataInPath);
-            Logger.Log("conf : " + confPath);
-            Logger.Log("data_out: " + dataOutPath);
+            Logger.Log("DataInPath: " + DataInPath);
+            Logger.Log("DataOutPath : " + DataOutPath);
+            Logger.Log("ConfigPath: " + ConfigPath);
 
             try
             {
-                _modifier = new DataModifier(File.ReadAllLines(confPath));
-                _sw = new StreamWriter(new FileStream(dataOutPath, FileMode.Create, FileAccess.Write), Encoding.GetEncoding(1251));
+                _modifier = new DataModifier(File.ReadAllLines(ConfigPath));
+                _sw = new StreamWriter(new FileStream(DataOutPath, FileMode.Create, FileAccess.Write), Encoding.GetEncoding(1251));
                 string header = CreateHeader();
                 _sw.WriteLine(header);
 
                 _loader.ProceedRowFunc = ProceedRow;
-                _loader.Load(dataInPath);
+                _loader.Load(DataInPath);
             }
             catch (Exception e)
             {

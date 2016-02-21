@@ -11,7 +11,7 @@ using FType = System.Double;
 
 namespace PtProject.Classifier
 {
-    public class RFClassifier : IClassifier
+    public class RFClassifier : AbstractClassifier
     {
         private DataLoader<FType> _trainLoader;
         private DataLoader<FType> _testLoader;
@@ -52,10 +52,6 @@ namespace PtProject.Classifier
         private Dictionary<string, double> _trainProbAvg = new Dictionary<string, double>();
 
 
-        private string _trainPath;
-        private string _testPath;
-        private string _ids;
-        private string _target;
         private int _nbTrain = 0;
         private int _nbTest = 0;
         private int _nclasses = 2;
@@ -63,131 +59,106 @@ namespace PtProject.Classifier
         private Dictionary<string,double> _errors = new Dictionary<string, FType>();
 
         public double RFCoeff = 0.05;
-        public int TotalBatches = 100;
+        public int BatchesInFirstStep = 100;
+        public int BatchesInSecondStep = 100;
         public int TreesInBatch = 1;
         public int BatchesInBruteForce = 1;
-        public int BatchesInFirstStep = 1;
-        public bool LoadFirstStepBatches = false;
+        public bool IsLoadFirstStepBatches = false;
         public double OutliersPrct = 0;
         public string BruteMeasure = "train";
-        public string SkipColumns = "";
         public string IndexSortOrder = "none";
+        public bool IsSaveTrees = false;
 
+        /// <summary>
+        /// Dict for all batches id->batch
+        /// </summary>
         private SortedDictionary<int, DecisionBatch> _classifiers = new SortedDictionary<int, DecisionBatch>();
 
-        
+
         /// <summary>
-        /// Drops columns from learning set
+        /// Random Forest classifier
         /// </summary>
-        /// <param name="cols">set of columns</param>
-        public void AddDropColumns(IEnumerable<string> cols)
-        {
-            foreach (var c in cols)
-            {
-                _trainLoader.AddSkipColumn(c);
-            }
-        }
-
-        public RFClassifier(int nbatches, double r, int nclasses)
-        {
-            LoadDefaultParams();
-
-            TotalBatches = nbatches;
-            RFCoeff = r;
-            _nclasses = nclasses;
-        }
-
-        public RFClassifier()
+        /// <param name="prms">parameters, described in app.config</param>
+        public RFClassifier(/*Dictionary<string,object> prms=null*/) : base(/*prms*/)
         {
             LoadDefaultParams();
         }
 
         /// <summary>
-        /// Задание параметров random forest
+        /// Default parameters for random-forest algorithm
         /// </summary>
-        /// <param name="nbatches">общее количество классификаторов</param>
-        /// <param name="r">доля множества для посторения дерева</param>
-        /// <param name="nclasses">количентсво классов (пока реализовано для 2)</param>
         public void LoadDefaultParams()
         {
-            string so = ConfigReader.Read("IndexSort");
-            if (so != null) IndexSortOrder = ConfigReader.Read("IndexSort");
+            string rfc = ConfigReader.Read("RFCoeff");
+            if (rfc != null) RFCoeff = double.Parse(rfc.Replace(',', '.'), CultureInfo.InvariantCulture);
+            _prms.Add("RFCoeff", RFCoeff);
 
-            string tbf = ConfigReader.Read("BatchesInBruteForce");
-            if (tbf != null) BatchesInBruteForce = int.Parse(tbf);
+            string bifs = ConfigReader.Read("BatchesInFirstStep");
+            if (bifs != null) BatchesInFirstStep = int.Parse(bifs);
+            _prms.Add("BatchesInFirstStep", BatchesInFirstStep);
+
+            string biss = ConfigReader.Read("BatchesInSecondStep");
+            if (biss != null) BatchesInSecondStep = int.Parse(biss);
+            _prms.Add("BatchesInSecondStep", BatchesInSecondStep);
 
             string tib = ConfigReader.Read("TreesInBatch");
             if (tib != null) TreesInBatch = int.Parse(tib);
+            _prms.Add("TreesInBatch", TreesInBatch);
 
-            string tifs = ConfigReader.Read("BatchesInFirstStep");
-            if (tifs != null) BatchesInFirstStep = int.Parse(tifs);
+            string tbf = ConfigReader.Read("BatchesInBruteForce");
+            if (tbf != null) BatchesInBruteForce = int.Parse(tbf);
+            _prms.Add("BatchesInBruteForce", BatchesInBruteForce);
 
             string lfsb = ConfigReader.Read("LoadFirstStepBatches");
-            if (lfsb != null) LoadFirstStepBatches = bool.Parse(lfsb);
+            if (lfsb != null) IsLoadFirstStepBatches = bool.Parse(lfsb);
+            _prms.Add("LoadFirstStepBatches", IsLoadFirstStepBatches);
 
             string op = ConfigReader.Read("OutliersPrct");
             if (op != null) OutliersPrct = double.Parse(op.Replace(',', '.'), CultureInfo.InvariantCulture);
+            _prms.Add("OutliersPrct", OutliersPrct);
 
             string bm = ConfigReader.Read("BruteMeasure");
             if (bm != null) BruteMeasure = bm;
+            _prms.Add("BruteMeasure", BruteMeasure);
 
-            string sc = ConfigReader.Read("SkipColumns");
-            if (sc != null) SkipColumns = sc;
+            string so = ConfigReader.Read("IndexSortOrder");
+            if (so != null) IndexSortOrder = so;
+            _prms.Add("IndexSortOrder", IndexSortOrder);
 
-            string tb = ConfigReader.Read("TotalBatches");
-            if (tb != null) TotalBatches = int.Parse(tb);
-
-            string rfc = ConfigReader.Read("RFCoeff");
-            if (rfc != null) RFCoeff = double.Parse(rfc.Replace(',', '.'), CultureInfo.InvariantCulture);
+            string st = ConfigReader.Read("IsSaveTrees");
+            if (st != null) IsSaveTrees = bool.Parse(st);
+            _prms.Add("IsSaveTrees", IsSaveTrees);
         }
 
-        public void PrintParams()
+        public void AddDropColumn(string col)
         {
-            Logger.Log("RFCoeff: " + RFCoeff);
-            Logger.Log("TotalBatches: " + TotalBatches);
-            Logger.Log("BatchesInFirstStep: " + BatchesInFirstStep);
-            Logger.Log("BatchesInBruteForce: " + BatchesInBruteForce);
-            Logger.Log("TreesInBatch: " + TreesInBatch);
-            Logger.Log("LoadFirstStepBatches: " + LoadFirstStepBatches);
-            Logger.Log("indexes sort order: " + IndexSortOrder);
-            Logger.Log("OutliersPrct: " + OutliersPrct);
-            Logger.Log("BruteMeasure: " + BruteMeasure);
-            Logger.Log("SkipColumns: " + SkipColumns);
+            _trainLoader.AddSkipColumn(col);
         }
 
         /// <summary>
-        /// Reads data from train and test files
-        /// <param name="trainPath">train file path</param>
-        /// <param name="testPath">test file path</param>
-        /// <param name="target">target variable name</param>
+        /// Reads data from train and test files, pre-modification
         /// </summary>
-        public void LoadData(string trainPath, string testPath, string ids, string target)
+        public override void LoadData()
         {
-            _trainPath = trainPath;
-            _testPath = testPath;
-            _target = target;
-            _ids = ids;
+            _trainLoader = TargetName != null ? new DataLoader<FType>(TargetName) : new DataLoader<FType>();
+            _testLoader = TargetName != null ? new DataLoader<FType>(TargetName) : new DataLoader<FType>();
 
-            _trainLoader = _target != null ? new DataLoader<FType>(_target) : new DataLoader<FType>();
-            _testLoader = _target != null ? new DataLoader<FType>(_target) : new DataLoader<FType>();
-
-            if (!File.Exists(_trainPath))
+            if (!File.Exists(TrainPath))
             {
-                Logger.Log("train file " + _trainPath + " not found");
-                throw new FileNotFoundException("", _trainPath);
+                Logger.Log("train file " + TrainPath + " not found");
+                throw new FileNotFoundException("", TrainPath);
             }
 
-            if (!File.Exists(_trainPath))
+            if (!File.Exists(TestPath))
             {
-                Logger.Log("test file " + _testPath + " not found");
-                throw new FileNotFoundException("", _testPath);
+                Logger.Log("test file " + TestPath + " not found");
+                throw new FileNotFoundException("", TestPath);
             }
 
             // loading train file
             _trainLoader.IsLoadForLearning = true;
-            _trainLoader.AddIdsString(ids);
-            _trainLoader.AddSkipColumns(SkipColumns);
-            _trainLoader.Load(_trainPath);
+            _trainLoader.AddIdsString(IdName);
+            _trainLoader.Load(TrainPath);
 
             foreach (var key in _trainLoader.TargetProb.Keys)
                 Logger.Log("prob[" + key.ToString("F0") + "] = " + _trainLoader.TargetProb[key].ToString("F06"));
@@ -202,7 +173,7 @@ namespace PtProject.Classifier
                 _testLoader.AddSkipColumn(col);
 
             // loading test file
-            _testLoader.Load(_testPath);
+            _testLoader.Load(TestPath);
 
             ModifyData();
         }
@@ -211,7 +182,7 @@ namespace PtProject.Classifier
         /// <summary>
         /// build and test classifier
         /// </summary>
-        public ClassifierResult Build(bool savetrees=false, bool boost=false)
+        public override ClassifierResult Build()
         {
             if (_trainLoader == null || _trainLoader.LearnRows == null)
                 throw new InvalidOperationException("train set is empty");
@@ -223,23 +194,23 @@ namespace PtProject.Classifier
             {
                 sw.WriteLine("time;n;train auc;test auc;stype");
 
-                // создаем первые классификаторы
+                // создаем первые классификаторы (first step)
                 for (int i = 0; i < BatchesInFirstStep; i++)
                 {
                     DecisionBatch cls = null;
-                    if (LoadFirstStepBatches)
+                    if (IsLoadFirstStepBatches)
                     {
                         cls = DecisionBatch.Load(Environment.CurrentDirectory + "\\batches\\" + "batch_" + string.Format("{0:0000.#}", i) + ".dmp");
                         if (cls == null)
                         {
                             cls = CreateClassifier(useidx: false, parallel: true);
-                            if (savetrees) cls.Save();
+                            if (IsSaveTrees) cls.Save();
                         }
                     }
                     else
                     {
                         cls = CreateClassifier(useidx: false, parallel: true);
-                        if (savetrees) cls.Save();
+                        if (IsSaveTrees) cls.Save();
                     }
 
                     // расчитываем метрики для тестового и обучающего множества (накопленные)
@@ -253,70 +224,64 @@ namespace PtProject.Classifier
                     ret.AddStepResult(testRes, i);
                 }
 
-                // далее создаем классификаторы с учетом ошибки предыдущих
+                // далее создаем классификаторы с учетом ошибки предыдущих (second step)
+                int TotalBatches = BatchesInFirstStep + BatchesInSecondStep;
                 for (int i = BatchesInFirstStep; i < TotalBatches; i++)
                 {
                     DecisionBatch bestForest = null;
 
-                    if (boost)
+                    // перестраиваем индексы плохо классифицированных объектов (плохие сначала)
+                    RefreshIndexes();
+
+                    double bestMetric = 1000000;
+                    int bestk = 0;
+
+                    // строим классификаторы и выбираем лучший
+                    for (int k = 0; k < BatchesInBruteForce; k++)
                     {
-                        // перестраиваем индексы плохо классифицированных объектов (плохие сначала)
-                        RefreshIndexes();
+                        var scls = CreateClassifier(useidx: true, parallel: true);
 
-                        double bestMetric = 1000000;
-                        int bestk = 0;
+                        // расчитываем метрики для тестового множества
+                        var trainCntRes = GetTrainClassificationCounts(scls);
+                        var testCntRes = GetTestClassificationCounts(scls);
+                        int cnt = scls.CountTreesInBatch;
 
-                        // строим классификаторы и выбираем лучший
-                        for (int k = 0; k < BatchesInBruteForce; k++)
+                        var rlist = new RocItem[(BruteMeasure == "train" ? _trainResult.Count : _testResult.Count)]; // массив для оценки результата
+                                                                        // находим статистики классификации
+                        int idx = 0;
+                        double epsilon = 0.0;
+                        foreach (string id in (BruteMeasure == "train" ? _trainResult.Keys : _testResult.Keys))
                         {
-                            var scls = CreateClassifier(useidx: true, parallel: true);
+                            if (rlist[idx] == null) rlist[idx] = new RocItem();
 
-                            // расчитываем метрики для тестового множества
-                            var trainCntRes = GetTrainClassificationCounts(scls);
-                            var testCntRes = GetTestClassificationCounts(scls);
-                            int cnt = scls.CountTreesInBatch;
+                            rlist[idx].Prob = (BruteMeasure == "train" ? trainCntRes[id] : testCntRes[id]) / cnt; // среднее по наблюдениям
+                            rlist[idx].Target = (BruteMeasure == "train" ? _trainResult[id] : _testResult[id]);
+                            rlist[idx].Predicted = rlist[idx].Prob > 0.5 ? 1 : 0;
 
-                            var rlist = new RocItem[(BruteMeasure == "train" ? _trainResult.Count : _testResult.Count)]; // массив для оценки результата
-                                                                         // находим статистики классификации
-                            int idx = 0;
-                            double epsilon = 0.0;
-                            foreach (string id in (BruteMeasure == "train" ? _trainResult.Keys : _testResult.Keys))
-                            {
-                                if (rlist[idx] == null) rlist[idx] = new RocItem();
+                            epsilon += Math.Abs(rlist[idx].Prob - rlist[idx].Target) * (BruteMeasure == "train" ? _errors[id] : 1);
 
-                                rlist[idx].Prob = (BruteMeasure == "train" ? trainCntRes[id] : testCntRes[id]) / cnt; // среднее по наблюдениям
-                                rlist[idx].Target = (BruteMeasure == "train" ? _trainResult[id] : _testResult[id]);
-                                rlist[idx].Predicted = rlist[idx].Prob > 0.5 ? 1 : 0;
-
-                                epsilon += Math.Abs(rlist[idx].Prob - rlist[idx].Target) * (BruteMeasure == "train" ? _errors[id] : 1);
-
-                                idx++;
-                            }
-
-                            Array.Sort(rlist, (o1, o2) => (1 - o1.Prob).CompareTo(1 - o2.Prob));
-                            var clsRes = ResultCalc.GetResult(rlist, 0.05);
-
-                            epsilon *= (1 - clsRes.AUC);
-
-                            Logger.Log("sub cls #" + k + " auc=" + clsRes.AUC.ToString("F10") + " eps=" + epsilon + (epsilon < bestMetric ? " [best]" : ""));
-
-                            if (epsilon < bestMetric)
-                            {
-                                bestMetric = epsilon;
-                                bestForest = scls;
-                                bestk = k;
-                            }
+                            idx++;
                         }
-                    }
-                    else
-                    {
-                        bestForest = CreateClassifier(useidx: false, parallel: true);
+
+                        Array.Sort(rlist, (o1, o2) => (1 - o1.Prob).CompareTo(1 - o2.Prob));
+                        var clsRes = ResultCalc.GetResult(rlist, 0.05);
+
+                        epsilon *= (1 - clsRes.AUC);
+
+                        Logger.Log("sub cls #" + k + " auc=" + clsRes.AUC.ToString("F10") + " eps=" + epsilon + (epsilon < bestMetric ? " [best]" : ""));
+
+                        if (epsilon < bestMetric)
+                        {
+                            bestMetric = epsilon;
+                            bestForest = scls;
+                            bestk = k;
+                        }
                     }
 
 
                     var testRes = GetTestMetricsAccumulated(bestForest);
                     var trainRes = GetTrainMetricsAccumulated(bestForest);
-                    if (savetrees) bestForest.Save();
+                    if (IsSaveTrees) bestForest.Save();
 
                     ret.AddStepResult(testRes, i);
                     Logger.Log("batch=" + i + " ok; test AUC=" + testRes.AUC.ToString("F10") + "; train AUC=" + trainRes.AUC.ToString("F10"));
@@ -454,7 +419,7 @@ namespace PtProject.Classifier
         /// </summary>
         /// <param name="sarr">array of double params</param>
         /// <returns></returns>
-        public double[] PredictProba(double[] sarr)
+        public override double[] PredictProba(double[] sarr)
         {
             var y = PredictCounts(sarr);
             int cnt = 0;
@@ -611,38 +576,38 @@ namespace PtProject.Classifier
         }
 
 
+        private int BucketNum = 0;
         /// <summary>
         /// Load trees from dump files
         /// </summary>
-        /// <param name="root">diretory with trees</param>
-        /// <param name="cnt">trees count in bucket</param>
-        /// <param name="bucket">number of bucket</param>
-        /// <returns>loaded trees count</returns>
-        public int LoadTrees(string root, int cnt=0, int bucket=0)
+        public override int LoadClassifier()
         {
-            string treesDir = root == null ? (Environment.CurrentDirectory + "\\batches") : root;
+            string TreesRoot = ConfigReader.Read("TreesRoot");
+            int BucketSize = int.Parse(ConfigReader.Read("BucketSize"));
+
+            string treesDir = TreesRoot == null ? (Environment.CurrentDirectory + "\\batches") : TreesRoot;
             if (!Directory.Exists(treesDir))
             {
-                Logger.Log("directory " + root + " doesn't exists");
+                Logger.Log("directory " + treesDir + " doesn't exists");
                 return 0;
             }
             var dinfo = new DirectoryInfo(treesDir);
             _classifiers.Clear();
 
-            int idx = 0;
             var files = dinfo.GetFiles("*.dmp").OrderBy(f => f.Name).ToArray();
-            if (cnt > 0)
+            if (BucketSize > 0)
             {
-                files = files.Skip(cnt * bucket).Take(cnt).ToArray();
+                files = files.Skip(BucketSize * BucketNum).Take(BucketSize).ToArray();
+                BucketNum++;
             }
             foreach (var finfo in files)
             {
                 var cls = DecisionBatch.Load(finfo.FullName);
-                _classifiers.Add(idx++, cls);
+                _classifiers.Add(BucketNum++, cls);
                 Logger.Log(finfo.Name + " loaded;");
             }
             Logger.Log("all trees loaded;");
-            return idx;
+            return BucketNum;
         }
 
         /// <summary>
@@ -693,11 +658,6 @@ namespace PtProject.Classifier
         public void Clear()
         {
             _classifiers.Clear();
-        }
-
-        public ClassifierResult Build()
-        {
-            return Build(false, false);
         }
     }
 }

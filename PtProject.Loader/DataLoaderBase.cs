@@ -55,6 +55,7 @@ namespace PtProject.Loader
         /// columns for skeeping
         /// </summary>
         public readonly Dictionary<string, int> SkippedColumns = new Dictionary<string, int>();
+        public string SkipColumns;
 
         public abstract List<DataRow<object>> GetRows();
         public abstract Type GetItemType();

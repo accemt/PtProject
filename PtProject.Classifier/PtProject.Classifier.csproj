@@ -59,10 +59,10 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AbstractClassifier.cs" />
     <Compile Include="ClassifierResult.cs" />
     <Compile Include="DecisionBatch.cs" />
     <Compile Include="DecisionTree.cs" />
-    <Compile Include="IClassifier.cs" />
     <Compile Include="KMeansClassifier.cs" />
     <Compile Include="RFClassifier.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

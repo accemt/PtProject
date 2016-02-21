@@ -63,7 +63,7 @@ namespace PtProject.Eval
             }
             catch (Exception e)
             {
-                Logger.Log(e);
+                Logger.Log(e.Message + (e.InnerException!=null?("\n\t"+e.InnerException.Message):"")  + "\n\texpr: " + _expression);
             }
             return ret;
         }

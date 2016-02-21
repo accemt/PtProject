@@ -77,6 +77,10 @@ namespace PtProject.Loader
             var dfval = ConfigReader.Read("DateFormat");
             if (dfval != null)
                 DateFormat = dfval;
+
+            string sc = ConfigReader.Read("SkipColumns");
+            if (sc != null) SkipColumns = sc;
+            AddSkipColumns(SkipColumns);
         }
 
         public DataLoader(string target) : this()
@@ -476,6 +480,9 @@ namespace PtProject.Loader
 
         public void AddSkipColumns(string skipColumns)
         {
+            if (string.IsNullOrWhiteSpace(skipColumns))
+                return;
+
             string[] blocks = skipColumns.Split(',');
             foreach (string b in blocks)
             {

@@ -57,9 +57,6 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="app.config" />
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\PtProject.Classifier\PtProject.Classifier.csproj">
       <Project>{aaec3b01-7d02-488c-942d-5cb71146779f}</Project>
       <Name>PtProject.Classifier</Name>
@@ -76,6 +73,9 @@
       <Project>{987c0363-6879-4ff3-9606-9aef32e5d648}</Project>
       <Name>PtProject.Loader</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
