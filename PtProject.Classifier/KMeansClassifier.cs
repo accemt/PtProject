@@ -108,13 +108,10 @@ namespace PtProject.Classifier
         public override double[] PredictProba(double[] sarr)
         {
             // modifying data
-            foreach (var row in _trainLoader.Rows)
+            for (int i = 0; i < sarr.Length; i++)
             {
-                for (int i = 0; i < row.Coeffs.Length; i++)
-                {
-                    sarr[i] -= _avgs[i];
-                    sarr[i] /= _vars[i] > 0 ? Math.Sqrt(_vars[i]) : 1;
-                }
+                sarr[i] -= _avgs[i];
+                sarr[i] /= _vars[i] > 0 ? Math.Sqrt(_vars[i]) : 1;
             }
 
             var tlist = new List<Tuple<double, double>>();
