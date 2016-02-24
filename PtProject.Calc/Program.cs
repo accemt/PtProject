@@ -94,7 +94,8 @@ namespace PtProject.Calc
                         var prob = cls.PredictProba(mvals);
 
                         string targStr = target != null ? (";" + row.Target) : null;
-                        sw.WriteLine(row.Id + ";" + prob[1] + targStr);
+                        string oinfo = prob.ObjectInfo != null ? (";" + prob.ObjectInfo) : null;
+                        sw.WriteLine(row.Id + ";" + prob.Probs[1] + targStr + oinfo);
 
                         if (idx % 123 == 0)
                         {

@@ -419,8 +419,10 @@ namespace PtProject.Classifier
         /// </summary>
         /// <param name="sarr">array of double params</param>
         /// <returns></returns>
-        public override double[] PredictProba(double[] sarr)
+        public override ObjectClassificationResult PredictProba(double[] sarr)
         {
+            var result = new ObjectClassificationResult();
+
             var y = PredictCounts(sarr);
             int cnt = 0;
 
@@ -430,7 +432,8 @@ namespace PtProject.Classifier
             for (int i = 0; i < y.Length; i++)
                 y[i] /= cnt;
             
-            return y;
+            result.Probs = y;
+            return result;
         }
 
         public double[] PredictProba(double[] sarr, double[] coeffs)
@@ -493,7 +496,7 @@ namespace PtProject.Classifier
             IEnumerable<int> source = Enumerable.Range(1, TreesInBatch);
             List<DecisionTree> treeList = null;
 
-            if (parallel)
+            if (IsParallel)
                 treeList = (from n in source.AsParallel()
                             select DecisionTree.CreateTree(useidx ? _indexes : null, xy, npoints, nvars, _nclasses, RFCoeff)
                         ).ToList();

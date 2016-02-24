@@ -15,6 +15,8 @@ namespace PtProject.Classifier
         public string TargetName;
         public string IdName;
 
+        public bool IsParallel = false;
+
         public void PrintParams()
         {
             foreach (var p in _prms.Keys)
@@ -42,13 +44,17 @@ namespace PtProject.Classifier
             string inm = ConfigReader.Read("IdName");
             if (inm != null) IdName = inm;
             _prms.Add("IdName", IdName);
+
+            string isp = ConfigReader.Read("IsParallel");
+            if (isp != null) IsParallel = bool.Parse(isp);
+            _prms.Add("IsParallel", IsParallel);
         }
 
         abstract public void LoadData();
 
         abstract public ClassifierResult Build();
 
-        abstract public double[] PredictProba(double[] sarr);
+        abstract public ObjectClassificationResult PredictProba(double[] sarr);
 
         abstract public int LoadClassifier();
     }

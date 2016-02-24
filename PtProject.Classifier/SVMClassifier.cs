@@ -64,7 +64,7 @@ namespace PtProject.Classifier
                 {
                     var y = PredictProba(sarr);
 
-                    double prob = y[1];
+                    double prob = y.Probs[1];
                     int kmax = probDictList[id].Keys.Count == 0 ? 0 : probDictList[id].Keys.Max() + 1;
                     probDictList[id].Add(kmax, prob);
                 }
@@ -109,8 +109,9 @@ namespace PtProject.Classifier
             return clsRes;
         }
 
-        public override double[] PredictProba(double[] sarr)
+        public override ObjectClassificationResult PredictProba(double[] sarr)
         {
+            var result = new ObjectClassificationResult();
             Node[] x = new Node[sarr.Length];
             for (int j = 0; j < sarr.Length; j++)
             {
@@ -118,7 +119,8 @@ namespace PtProject.Classifier
                 x[j].Index = j + 1;
                 x[j].Value = sarr[j];
             }
-            var result = Prediction.PredictProbability(_model, x);
+            var ret = Prediction.PredictProbability(_model, x);
+            result.Probs = ret;
             return result;
         }
 

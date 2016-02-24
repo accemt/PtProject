@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -18,7 +19,7 @@ namespace PtProject.Train
 
             try
             {
-                AbstractClassifier cls = new RFClassifier();
+                AbstractClassifier cls = LoadClassifier(ClassifierType);
 
                 cls.PrintParams();
                 cls.LoadData();
@@ -32,6 +33,14 @@ namespace PtProject.Train
                 Logger.Log(e);
             }
         }
-        
+
+        private static AbstractClassifier LoadClassifier(string ClassifierType)
+        {
+            AbstractClassifier cls = null;
+            var assm = Assembly.LoadFrom("PtProject.Classifier.dll");
+            Type clsType = assm.GetType(ClassifierType);
+            cls = (AbstractClassifier)Activator.CreateInstance(clsType);
+            return cls;
+        }
     }
 }
