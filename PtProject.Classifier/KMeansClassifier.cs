@@ -160,7 +160,7 @@ namespace PtProject.Classifier
             var slist = tlist.OrderBy(t => t.Item1).ToArray();
             var pcounts = new SortedDictionary<double, double>();
 
-            var sb = new StringBuilder();
+            //var sb = new StringBuilder();
 
             for (int i= NeighborsOffset; i<KNeighbors + NeighborsOffset; i++)
             {
@@ -169,10 +169,10 @@ namespace PtProject.Classifier
                     pcounts.Add(targ, 0);
                 pcounts[targ]++;
 
-                sb.Append(slist[i].Item1.ToString("F08")+';');
+                //sb.Append(slist[i].Item1.ToString("F08")+';');
             }
 
-            result.ObjectInfo = sb.ToString();
+            //result.ObjectInfo = sb.ToString();
             result.Probs = new double[_nclasses];
             for (int i=0;i<_nclasses;i++)
             {

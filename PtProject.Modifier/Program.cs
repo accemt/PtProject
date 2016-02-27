@@ -17,6 +17,7 @@ namespace PtProject.Modifier
         static DataLoader<FType> _loader = new DataLoader<FType>();
         static StreamWriter _sw;
         static DataModifier _modifier;
+        static string _header;
         static int _idx; //
         static object _obj = new object();
 
@@ -32,10 +33,8 @@ namespace PtProject.Modifier
 
             try
             {
-                _modifier = new DataModifier(File.ReadAllLines(ConfigPath));
+                _modifier = ConfigPath == null ? null : new DataModifier(File.ReadAllLines(ConfigPath));
                 _sw = new StreamWriter(new FileStream(DataOutPath, FileMode.Create, FileAccess.Write), Encoding.GetEncoding(1251));
-                string header = CreateHeader();
-                _sw.WriteLine(header);
 
                 _loader.ProceedRowFunc = ProceedRow;
                 _loader.Load(DataInPath);
@@ -52,26 +51,31 @@ namespace PtProject.Modifier
 
         static object ProceedRow(DataRow<FType> row)
         {
-            // parse values
-            var dataDict = new Dictionary<string, double>();
-            for (int i = 0; i < row.Coeffs.Length; i++)
+            if (_header==null)
             {
-                var fname = _loader.FileColumnByIdx[i];
-                double dval = row.Coeffs[i];
-
-                dataDict.Add(fname, dval);
+                _header = CreateHeader();
+                _sw.WriteLine(_header);
             }
+            _idx++;
 
             // get modified values
-            var vals = _modifier.GetModifiedDataDict(dataDict);
+            var vals = GetRowValues(row);
 
             // create modified values string
+            _sw.WriteLine(GetDataVector(vals));
+
+            if (_idx % 12345 == 0) _sw.Flush();
+            return _obj;
+        }
+
+        private static StringBuilder GetDataVector(double[] vals)
+        {
             var sb = new StringBuilder();
             int k = 0;
-            foreach (var col in _modifier.Fields.Values.OrderBy(c => c.Idx))
+            foreach (var col in vals)
             {
                 k++;
-                string estr = vals[col].ToString("F06");
+                string estr = col.ToString("F06");
                 if (k == 1)
                     sb.Append(estr);
                 else
@@ -80,20 +84,28 @@ namespace PtProject.Modifier
                     sb.Append(estr);
                 }
             }
-            _sw.WriteLine(sb.ToString());
 
-            _idx++;
-
-            if (_idx % 12345 == 0)
-            {
-                _sw.Flush();
-            }
-
-            return _obj;
+            return sb;
         }
 
         static string CreateHeader()
         {
+            if (_modifier==null)
+            {
+                var sb = new StringBuilder();
+                int n = 0;
+                foreach (var col in _loader.RowColumnByIdx.OrderBy(c => c.Key))
+                {
+                    n++;
+                    string cname = col.Value;
+                    if (n == 1)
+                        sb.Append(cname);
+                    else
+                        sb.Append(_loader.SplitSymbol + cname);
+                }
+                return sb.ToString();
+            }
+
             var hb = new StringBuilder();
             int s = 0;
             foreach (var col in _modifier.Fields.Values.OrderBy(c => c.Idx))
@@ -106,6 +118,21 @@ namespace PtProject.Modifier
                     hb.Append(_loader.SplitSymbol + cname);
             }
             return hb.ToString();
+        }
+
+        private static double[] GetRowValues(DataRow<FType> row)
+        {
+            if (_modifier == null)
+                return Array.ConvertAll(row.Coeffs, x => (double)x);
+
+            var vals = new Dictionary<string, double>();
+            for (int i = 0; i < row.Coeffs.Length; i++)
+            {
+                string colname = _loader.RowColumnByIdx[i];
+                vals.Add(colname, row.Coeffs[i]);
+            }
+            var mvals = _modifier.GetModifiedDataVector(vals);
+            return mvals;
         }
 
     }

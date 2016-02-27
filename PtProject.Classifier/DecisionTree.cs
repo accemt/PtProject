@@ -17,14 +17,13 @@ namespace PtProject.Classifier
         public alglib.decisionforest AlglibTree { get; private set; }
         public int NClasses { get; private set; }
         public int NVars { get; private set; }
+        public int ModNvars { get; private set; }
+        public int[] VarIndexes { get; private set; }
 
         public int Id;
 
-        public DecisionTree(alglib.decisionforest tree, int nclasses, int nvars)
+        public DecisionTree()
         {
-            AlglibTree = tree;
-            NClasses = nclasses;
-            NVars = nvars;
         }
 
         /// <summary>
@@ -37,59 +36,131 @@ namespace PtProject.Classifier
             if (sarr.Length != NVars)
                 throw new InvalidOperationException("NVars != sarr.Length");
 
-            var sy = new double[NClasses];
-            alglib.dfprocess(AlglibTree, sarr, ref sy);
+            double[] sy = null;
+
+            try
+            {
+                sy = new double[NClasses];
+                double[] nsarr = sarr;
+                if (VarIndexes != null)
+                {
+                    nsarr = new double[VarIndexes == null ? NClasses : ModNvars];
+                    for (int i = 0; i < ModNvars; i++)
+                        nsarr[i] = sarr[VarIndexes[i]];
+                }
+                alglib.dfprocess(AlglibTree, nsarr, ref sy);
+            }
+            catch (Exception e)
+            {
+                Logger.Log(e);
+                throw;
+            }
 
             return sy;
         }
 
-        public static DecisionTree CreateTree(double[,] xy, int npoints, int nvars, int nclasses, double coeff, int id=0)
+        /// <summary>
+        /// creates tree by all xy array and all variables
+        /// only internal use
+        /// </summary>
+        /// <param name="xy">train set</param>
+        /// <param name="nclasses">now works only with 2</param>
+        /// <param name="id">tree id</param>
+        /// <returns></returns>
+        private static DecisionTree CreateTree(double[,] xy, int nclasses, int nvars, int npoints, int modNvars, int[] vidxes)
         {
-            int info;
-            alglib.decisionforest df;
-            alglib.dfreport rep;
-            alglib.dfbuildrandomdecisionforest(xy, npoints, nvars, nclasses, 1, coeff, out info, out df, out rep);
+            DecisionTree result = null;
 
-            var tree = new DecisionTree(df, nclasses, nvars);
-            tree.Id = id==0?CreateId():id;
-            return tree;
+            try
+            {
+                int info;
+                alglib.decisionforest df;
+                alglib.dfreport rep;
+                alglib.dfbuildrandomdecisionforest(xy, npoints, modNvars, nclasses, 1, 1, out info, out df, out rep);
+
+                result = new DecisionTree();
+                result.Id = CreateId();
+                result.AlglibTree = df;
+                result.NClasses = nclasses;
+                result.NVars = nvars;
+                result.ModNvars = modNvars;
+                result.VarIndexes = vidxes;
+            }
+            catch (Exception e)
+            {
+                Logger.Log(e);
+                throw;
+            }
+
+            return result;
         }
 
-        public static DecisionTree CreateTree(int[] indexes, double[,] xy, int npoints, int nvars, int nclasses, double coeff)
+        public static DecisionTree CreateTree(int[] indexes, double[,] xy, int nclasses, double pcoeff, double vcoeff)
         {
+            if (xy == null)
+                throw new ArgumentException("xy is null", "xy");
+
+            int npoints = xy.GetLength(0);
+            int nvars = xy.GetLength(1)-1;
+
+            int modNpoints = (int)(npoints * pcoeff); // столько значений надо нагенерировать
+            int modNvars = (int)(nvars * vcoeff); // столько переменных используем
+
+            if (modNvars < 1)
+                throw new ArgumentException("vcoeff too small", "vcoeff");
+
+            int[] vidxes = null;
+            if (modNvars < nvars)
+                vidxes = Enumerable.Range(0, nvars).OrderBy(c=>RandomGen.GetDouble()).Take(modNvars).ToArray();
+
             if (indexes == null)
-                return CreateTree(xy, npoints, nvars, nclasses, coeff);
-
-            int modNpoints = (int)(npoints * coeff); // столько значений надо нагенерировать
-            int nk = 0; // столько нагенерировали
-            double[,] nxy = new double[modNpoints, nvars + 1]; // сами значения
-
-            var exists = new Dictionary<int, int>();
-
-            while (nk < modNpoints)
             {
-                for (int i = 0; i < modNpoints; i++)
+                // basic tree, without distribution selection
+                if (vidxes==null)
+                    return CreateTree(xy, nclasses, nvars, npoints, nvars, null);
+
+                double[,] nxy = new double[npoints, modNvars + 1]; // сами значения
+                for (int i = 0; i < npoints; i++)
                 {
-                    int sn = (int)(RandomGen.GetTrangle() * npoints);
-                    if (sn >= indexes.Length) sn = indexes.Length - 1;
+                    for (int j = 0; j < modNvars; j++)
+                        nxy[i, j] = xy[i, vidxes[j]];
+                    nxy[i, modNvars] = xy[i, nvars];
+                }
 
-                    if (exists.ContainsKey(sn)) continue; // такой ключ уже был
+                return CreateTree(nxy, nclasses, nvars, modNpoints, modNvars, vidxes);
+            }
+            else
+            {
+                // tree, with distribution selection
+                int nk = 0; // столько нагенерировали
+                double[,] nxy = new double[modNpoints, modNvars + 1]; // сами значения
 
-                    exists.Add(sn, 0);
-                    int sidx = indexes[sn];
-                    for (int j = 0; j < nvars + 1; j++)
-                        nxy[i, j] = xy[sidx, j];
-                    nk++;
+                var exists = new Dictionary<int, int>();
+
+                while (nk < modNpoints)
+                {
+                    for (int i = 0; i < modNpoints; i++)
+                    {
+                        int sn = (int)(RandomGen.GetTrangle() * npoints); // selection distribution
+                        if (sn >= indexes.Length) sn = indexes.Length - 1;
+
+                        if (exists.ContainsKey(sn)) continue; // такой ключ уже был
+
+                        exists.Add(sn, 0);
+                        int sidx = indexes[sn];
+                        for (int j = 0; j < modNvars; j++)
+                            nxy[i, j] = xy[sidx, vidxes == null ? j : vidxes[j]];
+                        nxy[i, modNvars] = xy[sidx, nvars];
+                        nk++;
+
+                        if (nk >= modNpoints) break;
+                    }
 
                     if (nk >= modNpoints) break;
                 }
 
-                if (nk >= modNpoints) break;
+                return CreateTree(nxy, nclasses, nvars, modNpoints, modNvars, vidxes);
             }
-
-            int id = CreateId();
-
-            return CreateTree(nxy, modNpoints, nvars, nclasses, 1, id);
         }
 
         private static int CreateId()

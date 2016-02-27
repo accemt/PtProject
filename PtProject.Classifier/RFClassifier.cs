@@ -59,6 +59,7 @@ namespace PtProject.Classifier
         private Dictionary<string,double> _errors = new Dictionary<string, FType>();
 
         public double RFCoeff = 0.05;
+        public double VarsCoeff = 1;
         public int BatchesInFirstStep = 100;
         public int BatchesInSecondStep = 100;
         public int TreesInBatch = 1;
@@ -128,6 +129,10 @@ namespace PtProject.Classifier
             string st = ConfigReader.Read("IsSaveTrees");
             if (st != null) IsSaveTrees = bool.Parse(st);
             _prms.Add("IsSaveTrees", IsSaveTrees);
+
+            string vcf = ConfigReader.Read("VarsCoeff");
+            if (vcf != null) VarsCoeff = double.Parse(vcf.Replace(',', '.'), CultureInfo.InvariantCulture);
+            _prms.Add("VarsCoeff", VarsCoeff);
         }
 
         public void AddDropColumn(string col)
@@ -233,7 +238,7 @@ namespace PtProject.Classifier
                     // перестраиваем индексы плохо классифицированных объектов (плохие сначала)
                     RefreshIndexes();
 
-                    double bestMetric = 1000000;
+                    double bestMetric = double.MaxValue;
                     int bestk = 0;
 
                     // строим классификаторы и выбираем лучший
@@ -498,11 +503,11 @@ namespace PtProject.Classifier
 
             if (IsParallel)
                 treeList = (from n in source.AsParallel()
-                            select DecisionTree.CreateTree(useidx ? _indexes : null, xy, npoints, nvars, _nclasses, RFCoeff)
+                            select DecisionTree.CreateTree(useidx ? _indexes : null, xy, _nclasses, RFCoeff, VarsCoeff)
                         ).ToList();
             else
                 treeList = (from n in source
-                            select DecisionTree.CreateTree(useidx ? _indexes : null, xy, npoints, nvars, _nclasses, RFCoeff)
+                            select DecisionTree.CreateTree(useidx ? _indexes : null, xy, _nclasses, RFCoeff, VarsCoeff)
                         ).ToList();
 
             treeList.ForEach(classifier.AddTree);
