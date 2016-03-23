@@ -34,7 +34,7 @@ namespace PtProject.Classifier
         public double[] PredictCounts(double[] sarr)
         {
             if (sarr.Length != NVars)
-                throw new InvalidOperationException("NVars != sarr.Length");
+                throw new InvalidOperationException("NVars != sarr.Length ("+sarr.Length + "!=" + NVars+")");
 
             double[] sy = null;
 
@@ -109,32 +109,43 @@ namespace PtProject.Classifier
             if (modNvars < 1)
                 throw new ArgumentException("vcoeff too small", "vcoeff");
 
-            int[] vidxes = null;
+            int[] vidxes = Enumerable.Range(0, nvars).ToArray();
             if (modNvars < nvars)
                 vidxes = Enumerable.Range(0, nvars).OrderBy(c=>RandomGen.GetDouble()).Take(modNvars).ToArray();
 
+            double[,] nxy = new double[modNpoints, modNvars + 1]; // сами значения
+
             if (indexes == null)
             {
-                // basic tree, without distribution selection
-                if (vidxes==null)
-                    return CreateTree(xy, nclasses, nvars, npoints, nvars, null);
+                // basic tree
+                int nk = 0; // столько нагенерировали
+                var exists = new Dictionary<int, int>();
 
-                double[,] nxy = new double[npoints, modNvars + 1]; // сами значения
-                for (int i = 0; i < npoints; i++)
+                while (nk < modNpoints)
                 {
-                    for (int j = 0; j < modNvars; j++)
-                        nxy[i, j] = xy[i, vidxes[j]];
-                    nxy[i, modNvars] = xy[i, nvars];
-                }
+                    for (int i = 0; i < modNpoints; i++)
+                    {
+                        int sn = (int)(RandomGen.GetDouble() * npoints); // selection distribution
+                        if (sn >= npoints) continue;
 
-                return CreateTree(nxy, nclasses, nvars, modNpoints, modNvars, vidxes);
+                        if (exists.ContainsKey(sn)) continue; // такой ключ уже был
+
+                        exists.Add(sn, 0);
+                        for (int j = 0; j < modNvars; j++)
+                            nxy[i, j] = xy[sn, vidxes[j]];
+                        nxy[i, modNvars] = xy[sn, nvars];
+                        nk++;
+
+                        if (nk >= modNpoints) break;
+                    }
+
+                    if (nk >= modNpoints) break;
+                }
             }
             else
             {
                 // tree, with distribution selection
                 int nk = 0; // столько нагенерировали
-                double[,] nxy = new double[modNpoints, modNvars + 1]; // сами значения
-
                 var exists = new Dictionary<int, int>();
 
                 while (nk < modNpoints)
@@ -142,14 +153,14 @@ namespace PtProject.Classifier
                     for (int i = 0; i < modNpoints; i++)
                     {
                         int sn = (int)(RandomGen.GetTrangle() * npoints); // selection distribution
-                        if (sn >= indexes.Length) sn = indexes.Length - 1;
+                        if (sn >= indexes.Length) continue;
 
                         if (exists.ContainsKey(sn)) continue; // такой ключ уже был
 
                         exists.Add(sn, 0);
                         int sidx = indexes[sn];
                         for (int j = 0; j < modNvars; j++)
-                            nxy[i, j] = xy[sidx, vidxes == null ? j : vidxes[j]];
+                            nxy[i, j] = xy[sidx, vidxes[j]];
                         nxy[i, modNvars] = xy[sidx, nvars];
                         nk++;
 
@@ -158,9 +169,9 @@ namespace PtProject.Classifier
 
                     if (nk >= modNpoints) break;
                 }
-
-                return CreateTree(nxy, nclasses, nvars, modNpoints, modNvars, vidxes);
             }
+
+            return CreateTree(nxy, nclasses, nvars, modNpoints, modNvars, vidxes);
         }
 
         private static int CreateId()

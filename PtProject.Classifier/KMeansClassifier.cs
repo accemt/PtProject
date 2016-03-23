@@ -19,6 +19,7 @@ namespace PtProject.Classifier
         public int KNeighbors = 2;
         public double Pow = 2;
         public int NeighborsOffset = 0;
+        public int InfoLength = 0;
 
         private int _nclasses = 2;
         private double[] _avgs;
@@ -46,6 +47,10 @@ namespace PtProject.Classifier
             string nofs = ConfigReader.Read("NeighborsOffset");
             if (nofs != null) NeighborsOffset = int.Parse(nofs);
             _prms.Add("NeighborsOffset", NeighborsOffset);
+
+            string ilen = ConfigReader.Read("InfoLength");
+            if (ilen != null) InfoLength = int.Parse(ilen);
+            _prms.Add("InfoLength", InfoLength);
         }
 
         public override ClassifierResult Build()
@@ -160,19 +165,20 @@ namespace PtProject.Classifier
             var slist = tlist.OrderBy(t => t.Item1).ToArray();
             var pcounts = new SortedDictionary<double, double>();
 
-            //var sb = new StringBuilder();
+            var sb = new StringBuilder();
 
-            for (int i= NeighborsOffset; i<KNeighbors + NeighborsOffset; i++)
+            for (int i= NeighborsOffset,ilen=0; i<KNeighbors + NeighborsOffset; i++,ilen++)
             {
                 var targ = slist[i].Item2;
                 if (!pcounts.ContainsKey(targ))
                     pcounts.Add(targ, 0);
                 pcounts[targ]++;
 
-                //sb.Append(slist[i].Item1.ToString("F08")+';');
+                if (ilen<InfoLength)
+                    sb.Append(slist[i].Item1.ToString("F08")+';');
             }
 
-            //result.ObjectInfo = sb.ToString();
+            result.ObjectInfo = sb.ToString();
             result.Probs = new double[_nclasses];
             for (int i=0;i<_nclasses;i++)
             {

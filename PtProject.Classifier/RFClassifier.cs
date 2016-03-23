@@ -110,9 +110,9 @@ namespace PtProject.Classifier
             if (tbf != null) BatchesInBruteForce = int.Parse(tbf);
             _prms.Add("BatchesInBruteForce", BatchesInBruteForce);
 
-            string lfsb = ConfigReader.Read("LoadFirstStepBatches");
+            string lfsb = ConfigReader.Read("IsLoadFirstStepBatches");
             if (lfsb != null) IsLoadFirstStepBatches = bool.Parse(lfsb);
-            _prms.Add("LoadFirstStepBatches", IsLoadFirstStepBatches);
+            _prms.Add("IsLoadFirstStepBatches", IsLoadFirstStepBatches);
 
             string op = ConfigReader.Read("OutliersPrct");
             if (op != null) OutliersPrct = double.Parse(op.Replace(',', '.'), CultureInfo.InvariantCulture);
@@ -233,7 +233,7 @@ namespace PtProject.Classifier
                 int TotalBatches = BatchesInFirstStep + BatchesInSecondStep;
                 for (int i = BatchesInFirstStep; i < TotalBatches; i++)
                 {
-                    DecisionBatch bestForest = null;
+                    DecisionBatch bestBatch = null;
 
                     // перестраиваем индексы плохо классифицированных объектов (плохие сначала)
                     RefreshIndexes();
@@ -254,7 +254,7 @@ namespace PtProject.Classifier
                         var rlist = new RocItem[(BruteMeasure == "train" ? _trainResult.Count : _testResult.Count)]; // массив для оценки результата
                                                                         // находим статистики классификации
                         int idx = 0;
-                        double epsilon = 0.0;
+                        double accerr = 0.0;
                         foreach (string id in (BruteMeasure == "train" ? _trainResult.Keys : _testResult.Keys))
                         {
                             if (rlist[idx] == null) rlist[idx] = new RocItem();
@@ -263,7 +263,7 @@ namespace PtProject.Classifier
                             rlist[idx].Target = (BruteMeasure == "train" ? _trainResult[id] : _testResult[id]);
                             rlist[idx].Predicted = rlist[idx].Prob > 0.5 ? 1 : 0;
 
-                            epsilon += Math.Abs(rlist[idx].Prob - rlist[idx].Target) * (BruteMeasure == "train" ? _errors[id] : 1);
+                            accerr += Math.Pow(rlist[idx].Prob - rlist[idx].Target, 2);
 
                             idx++;
                         }
@@ -271,22 +271,22 @@ namespace PtProject.Classifier
                         Array.Sort(rlist, (o1, o2) => (1 - o1.Prob).CompareTo(1 - o2.Prob));
                         var clsRes = ResultCalc.GetResult(rlist, 0.05);
 
-                        epsilon *= (1 - clsRes.AUC);
+                        accerr *= (1 - clsRes.AUC);
 
-                        Logger.Log("sub cls #" + k + " auc=" + clsRes.AUC.ToString("F10") + " eps=" + epsilon + (epsilon < bestMetric ? " [best]" : ""));
+                        Logger.Log("sub cls #" + k + " auc=" + clsRes.AUC.ToString("F10") + " eps=" + accerr + (accerr < bestMetric ? " [best]" : ""));
 
-                        if (epsilon < bestMetric)
+                        if (accerr < bestMetric)
                         {
-                            bestMetric = epsilon;
-                            bestForest = scls;
+                            bestMetric = accerr;
+                            bestBatch = scls;
                             bestk = k;
                         }
                     }
 
 
-                    var testRes = GetTestMetricsAccumulated(bestForest);
-                    var trainRes = GetTrainMetricsAccumulated(bestForest);
-                    if (IsSaveTrees) bestForest.Save();
+                    var testRes = GetTestMetricsAccumulated(bestBatch);
+                    var trainRes = GetTrainMetricsAccumulated(bestBatch);
+                    if (IsSaveTrees) bestBatch.Save();
 
                     ret.AddStepResult(testRes, i);
                     Logger.Log("batch=" + i + " ok; test AUC=" + testRes.AUC.ToString("F10") + "; train AUC=" + trainRes.AUC.ToString("F10"));
