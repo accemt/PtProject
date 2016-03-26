@@ -133,13 +133,14 @@ namespace PtProject.Loader
                             {
                                 if (!FileIdxByColumn.ContainsKey(TargetName))
                                 {
-                                    Logger.Log("data don`t have a target (" + TargetName + ") column, exiting");
-                                    break;
+                                    Logger.Log("Warning: data don't have a target (" + TargetName + ") column, exiting");
+                                    //break;
+                                }
+                                else
+                                {
+                                    TargetIdx = FileIdxByColumn[TargetName]; // target column index
                                 }
                             }
-
-                            if (TargetName != null)
-                                TargetIdx = FileIdxByColumn[TargetName]; // target column index
 
                             // id columns
                             foreach (var iname in Ids.Keys)
@@ -180,7 +181,7 @@ namespace PtProject.Loader
                         var row = new DataRow<T>();
 
                         // parse target 
-                        if (TargetName != null) row.Target = ParseValue(blocks[TargetIdx]);
+                        if (TargetName != null && TargetIdx>=0) row.Target = ParseValue(blocks[TargetIdx]);
 
                         // creating composite id
                         row.Id = GetStringId(blocks);
