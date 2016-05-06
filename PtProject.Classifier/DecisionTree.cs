@@ -1,10 +1,7 @@
 ﻿using PtProject.Domain.Util;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace PtProject.Classifier
 {
@@ -12,7 +9,7 @@ namespace PtProject.Classifier
     public class DecisionTree
     {
         public static int N;
-        private static object _locker = new object();
+        private static readonly object Locker = new object();
 
         public alglib.decisionforest AlglibTree { get; private set; }
         public int NClasses { get; private set; }
@@ -21,10 +18,6 @@ namespace PtProject.Classifier
         public int[] VarIndexes { get; private set; }
 
         public int Id;
-
-        public DecisionTree()
-        {
-        }
 
         /// <summary>
         /// Predict probability by exact tree (0 or 1)
@@ -36,7 +29,7 @@ namespace PtProject.Classifier
             if (sarr.Length != NVars)
                 throw new InvalidOperationException("NVars != sarr.Length ("+sarr.Length + "!=" + NVars+")");
 
-            double[] sy = null;
+            double[] sy;
 
             try
             {
@@ -65,11 +58,14 @@ namespace PtProject.Classifier
         /// </summary>
         /// <param name="xy">train set</param>
         /// <param name="nclasses">now works only with 2</param>
-        /// <param name="id">tree id</param>
+        /// <param name="nvars"></param>
+        /// <param name="npoints"></param>
+        /// <param name="modNvars"></param>
+        /// <param name="vidxes"></param>
         /// <returns></returns>
         private static DecisionTree CreateTree(double[,] xy, int nclasses, int nvars, int npoints, int modNvars, int[] vidxes)
         {
-            DecisionTree result = null;
+            DecisionTree result;
 
             try
             {
@@ -177,7 +173,7 @@ namespace PtProject.Classifier
         private static int CreateId()
         {
             int id;
-            lock (_locker)
+            lock (Locker)
             {
                 id = N++;
             }

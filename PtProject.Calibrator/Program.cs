@@ -84,7 +84,7 @@ namespace PtProject.Calibrator
 
                             if (!countedDict.ContainsKey(vstr))
                             {
-                                var cls = new RFClassifier();
+                                var cls = new DecisionForest();
                                 var fdict = factors.ToDictionary(c => c);
 
                                 foreach (string variable in fmngr.FactorDict.Keys)
@@ -136,9 +136,9 @@ namespace PtProject.Calibrator
 
                 for (; StartCoeff <= 1; StartCoeff += Delta)
                 {
-                    var cls = new RFClassifier();
+                    var cls = new DecisionForest();
                     cls.LoadData();
-                    cls.RFCoeff = StartCoeff;
+                    cls.RfCoeff = StartCoeff;
                     var result = cls.Build();
                     foreach (int n in result.ResDict.Keys)
                     {

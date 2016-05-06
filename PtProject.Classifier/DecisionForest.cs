@@ -11,7 +11,7 @@ using FType = System.Double;
 
 namespace PtProject.Classifier
 {
-    public class RFClassifier : AbstractClassifier
+    public class DecisionForest : AbstractClassifier
     {
         private DataLoader<FType> _trainLoader;
         private DataLoader<FType> _testLoader;
@@ -34,53 +34,53 @@ namespace PtProject.Classifier
         /// <summary>
         /// сюда сохраняем сумму глосований на тестовом множестве
         /// </summary>
-        private Dictionary<string, double> _testProbSum = new Dictionary<string, double>(); 
+        private readonly Dictionary<string, double> _testProbSum = new Dictionary<string, double>(); 
 
         /// <summary>
         /// сюда сохраняем среднее глосований на тестовом множестве
         /// </summary>
-        private Dictionary<string, double> _testProbAvg = new Dictionary<string, double>();
+        private readonly Dictionary<string, double> _testProbAvg = new Dictionary<string, double>();
 
         /// <summary>
         /// сюда сохраняем сумму глосований на обучающем множестве
         /// </summary>
-        private Dictionary<string, double> _trainProbSum = new Dictionary<string, double>();
+        private readonly Dictionary<string, double> _trainProbSum = new Dictionary<string, double>();
 
         /// <summary>
         /// сюда сохраняем среднее глосований на обучающем множестве
         /// </summary>
-        private Dictionary<string, double> _trainProbAvg = new Dictionary<string, double>();
+        private readonly Dictionary<string, double> _trainProbAvg = new Dictionary<string, double>();
 
 
-        private int _nbTrain = 0;
-        private int _nbTest = 0;
+        private int _nbTrain;
+        private int _nbTest;
         private int _nclasses = 2;
-        private int[] _indexes = null;
+        private int[] _indexes;
         private Dictionary<string,double> _errors = new Dictionary<string, FType>();
 
-        public double RFCoeff = 0.05;
+        public double RfCoeff = 0.05;
         public double VarsCoeff = 1;
         public int BatchesInFirstStep = 100;
         public int BatchesInSecondStep = 100;
         public int TreesInBatch = 1;
         public int BatchesInBruteForce = 1;
-        public bool IsLoadFirstStepBatches = false;
-        public double OutliersPrct = 0;
+        public bool IsLoadFirstStepBatches;
+        public double OutliersPrct;
         public string BruteMeasure = "train";
         public string IndexSortOrder = "none";
-        public bool IsSaveTrees = false;
+        public bool IsSaveTrees;
 
         /// <summary>
         /// Dict for all batches id->batch
         /// </summary>
-        private SortedDictionary<int, DecisionBatch> _classifiers = new SortedDictionary<int, DecisionBatch>();
+        private readonly SortedDictionary<int, DecisionBatch> _classifiers = new SortedDictionary<int, DecisionBatch>();
 
 
         /// <summary>
         /// Random Forest classifier
         /// </summary>
-        /// <param name="prms">parameters, described in app.config</param>
-        public RFClassifier(/*Dictionary<string,object> prms=null*/) : base(/*prms*/)
+        // /// <param name="prms">parameters, described in app.config</param>
+        public DecisionForest(/*Dictionary<string,object> prms=null*/)// : base(/*prms*/)
         {
             LoadDefaultParams();
         }
@@ -90,49 +90,49 @@ namespace PtProject.Classifier
         /// </summary>
         public void LoadDefaultParams()
         {
-            string rfc = ConfigReader.Read("RFCoeff");
-            if (rfc != null) RFCoeff = double.Parse(rfc.Replace(',', '.'), CultureInfo.InvariantCulture);
-            _prms.Add("RFCoeff", RFCoeff);
+            string rfc = ConfigReader.Read("RfCoeff");
+            if (rfc != null) RfCoeff = double.Parse(rfc.Replace(',', '.'), CultureInfo.InvariantCulture);
+            Prms.Add("RfCoeff", RfCoeff);
 
             string bifs = ConfigReader.Read("BatchesInFirstStep");
             if (bifs != null) BatchesInFirstStep = int.Parse(bifs);
-            _prms.Add("BatchesInFirstStep", BatchesInFirstStep);
+            Prms.Add("BatchesInFirstStep", BatchesInFirstStep);
 
             string biss = ConfigReader.Read("BatchesInSecondStep");
             if (biss != null) BatchesInSecondStep = int.Parse(biss);
-            _prms.Add("BatchesInSecondStep", BatchesInSecondStep);
+            Prms.Add("BatchesInSecondStep", BatchesInSecondStep);
 
             string tib = ConfigReader.Read("TreesInBatch");
             if (tib != null) TreesInBatch = int.Parse(tib);
-            _prms.Add("TreesInBatch", TreesInBatch);
+            Prms.Add("TreesInBatch", TreesInBatch);
 
             string tbf = ConfigReader.Read("BatchesInBruteForce");
             if (tbf != null) BatchesInBruteForce = int.Parse(tbf);
-            _prms.Add("BatchesInBruteForce", BatchesInBruteForce);
+            Prms.Add("BatchesInBruteForce", BatchesInBruteForce);
 
             string lfsb = ConfigReader.Read("IsLoadFirstStepBatches");
             if (lfsb != null) IsLoadFirstStepBatches = bool.Parse(lfsb);
-            _prms.Add("IsLoadFirstStepBatches", IsLoadFirstStepBatches);
+            Prms.Add("IsLoadFirstStepBatches", IsLoadFirstStepBatches);
 
             string op = ConfigReader.Read("OutliersPrct");
             if (op != null) OutliersPrct = double.Parse(op.Replace(',', '.'), CultureInfo.InvariantCulture);
-            _prms.Add("OutliersPrct", OutliersPrct);
+            Prms.Add("OutliersPrct", OutliersPrct);
 
             string bm = ConfigReader.Read("BruteMeasure");
             if (bm != null) BruteMeasure = bm;
-            _prms.Add("BruteMeasure", BruteMeasure);
+            Prms.Add("BruteMeasure", BruteMeasure);
 
             string so = ConfigReader.Read("IndexSortOrder");
             if (so != null) IndexSortOrder = so;
-            _prms.Add("IndexSortOrder", IndexSortOrder);
+            Prms.Add("IndexSortOrder", IndexSortOrder);
 
             string st = ConfigReader.Read("IsSaveTrees");
             if (st != null) IsSaveTrees = bool.Parse(st);
-            _prms.Add("IsSaveTrees", IsSaveTrees);
+            Prms.Add("IsSaveTrees", IsSaveTrees);
 
             string vcf = ConfigReader.Read("VarsCoeff");
             if (vcf != null) VarsCoeff = double.Parse(vcf.Replace(',', '.'), CultureInfo.InvariantCulture);
-            _prms.Add("VarsCoeff", VarsCoeff);
+            Prms.Add("VarsCoeff", VarsCoeff);
         }
 
         public void AddDropColumn(string col)
@@ -202,19 +202,19 @@ namespace PtProject.Classifier
                 // создаем первые классификаторы (first step)
                 for (int i = 0; i < BatchesInFirstStep; i++)
                 {
-                    DecisionBatch cls = null;
+                    DecisionBatch cls;
                     if (IsLoadFirstStepBatches)
                     {
                         cls = DecisionBatch.Load(Environment.CurrentDirectory + "\\batches\\" + "batch_" + string.Format("{0:0000.#}", i) + ".dmp");
                         if (cls == null)
                         {
-                            cls = CreateClassifier(useidx: false, parallel: true);
+                            cls = CreateClassifier();
                             if (IsSaveTrees) cls.Save();
                         }
                     }
                     else
                     {
-                        cls = CreateClassifier(useidx: false, parallel: true);
+                        cls = CreateClassifier();
                         if (IsSaveTrees) cls.Save();
                     }
 
@@ -230,8 +230,8 @@ namespace PtProject.Classifier
                 }
 
                 // далее создаем классификаторы с учетом ошибки предыдущих (second step)
-                int TotalBatches = BatchesInFirstStep + BatchesInSecondStep;
-                for (int i = BatchesInFirstStep; i < TotalBatches; i++)
+                int totalBatches = BatchesInFirstStep + BatchesInSecondStep;
+                for (int i = BatchesInFirstStep; i < totalBatches; i++)
                 {
                     DecisionBatch bestBatch = null;
 
@@ -239,19 +239,18 @@ namespace PtProject.Classifier
                     RefreshIndexes();
 
                     double bestMetric = double.MaxValue;
-                    int bestk = 0;
 
                     // строим классификаторы и выбираем лучший
                     for (int k = 0; k < BatchesInBruteForce; k++)
                     {
-                        var scls = CreateClassifier(useidx: true, parallel: true);
+                        var scls = CreateClassifier(useidx: true);
 
                         // расчитываем метрики для тестового множества
                         var trainCntRes = GetTrainClassificationCounts(scls);
                         var testCntRes = GetTestClassificationCounts(scls);
                         int cnt = scls.CountTreesInBatch;
 
-                        var rlist = new RocItem[(BruteMeasure == "train" ? _trainResult.Count : _testResult.Count)]; // массив для оценки результата
+                        var rlist = new RocItem[BruteMeasure == "train" ? _trainResult.Count : _testResult.Count]; // массив для оценки результата
                                                                         // находим статистики классификации
                         int idx = 0;
                         double accerr = 0.0;
@@ -279,14 +278,19 @@ namespace PtProject.Classifier
                         {
                             bestMetric = accerr;
                             bestBatch = scls;
-                            bestk = k;
                         }
                     }
 
 
                     var testRes = GetTestMetricsAccumulated(bestBatch);
                     var trainRes = GetTrainMetricsAccumulated(bestBatch);
-                    if (IsSaveTrees) bestBatch.Save();
+                    if (IsSaveTrees)
+                    {
+                        if (bestBatch != null)
+                            bestBatch.Save();
+                        else
+                            Logger.Log("best Batch is null");
+                    }
 
                     ret.AddStepResult(testRes, i);
                     Logger.Log("batch=" + i + " ok; test AUC=" + testRes.AUC.ToString("F10") + "; train AUC=" + trainRes.AUC.ToString("F10"));
@@ -328,11 +332,11 @@ namespace PtProject.Classifier
                 Dictionary<string, double> probAvg,
                 Dictionary<string, int> resultDict,
                 int nbcount,
-                Func<DecisionBatch, Dictionary<string, double>> GetResult
+                Func<DecisionBatch, Dictionary<string, double>> getResult
             )
         {
             // получаем результат по одному классификатору
-            var result = GetResult(cls);
+            var result = getResult(cls);
 
             // сохраняем общую сумму голостов по идентификатору
             // т.е. добавляем результат голосований от очередного классификатора cls
@@ -444,7 +448,6 @@ namespace PtProject.Classifier
         public double[] PredictProba(double[] sarr, double[] coeffs)
         {
             var y = new double[_nclasses];
-            int cnt = _classifiers.Keys.Count();
 
             int cnum = 0;
             foreach (var id in _classifiers.Keys)
@@ -470,7 +473,6 @@ namespace PtProject.Classifier
         public double[] PredictCounts(double[] sarr)
         {
             var y = new double[_nclasses];
-            int cnt = _classifiers.Keys.Count();
 
             foreach (var id in _classifiers.Keys)
             {
@@ -489,25 +491,22 @@ namespace PtProject.Classifier
         /// Creates one classifier (batch of trees)
         /// </summary>
         /// <returns></returns>
-        private DecisionBatch CreateClassifier(bool useidx=false, bool parallel=false)
+        private DecisionBatch CreateClassifier(bool useidx=false)
         {
-            int npoints = _trainLoader.TotalDataLines;
-            int nvars = _trainLoader.NVars;
-            double coeff = RFCoeff;
             double[,] xy = _trainLoader.LearnRows;
             var classifier = new DecisionBatch();
 
 
             IEnumerable<int> source = Enumerable.Range(1, TreesInBatch);
-            List<DecisionTree> treeList = null;
+            List<DecisionTree> treeList;
 
             if (IsParallel)
                 treeList = (from n in source.AsParallel()
-                            select DecisionTree.CreateTree(useidx ? _indexes : null, xy, _nclasses, RFCoeff, VarsCoeff)
+                            select DecisionTree.CreateTree(useidx ? _indexes : null, xy, _nclasses, RfCoeff, VarsCoeff)
                         ).ToList();
             else
                 treeList = (from n in source
-                            select DecisionTree.CreateTree(useidx ? _indexes : null, xy, _nclasses, RFCoeff, VarsCoeff)
+                            select DecisionTree.CreateTree(useidx ? _indexes : null, xy, _nclasses, RfCoeff, VarsCoeff)
                         ).ToList();
 
             treeList.ForEach(classifier.AddTree);
@@ -519,8 +518,6 @@ namespace PtProject.Classifier
         /// <summary>
         /// Перестройка индексов для определения объектов, которые плохо классифицтрованы
         /// </summary>
-        /// <param name="rowsCnt"></param>
-        /// <param name="varsCnt"></param>
         private void RefreshIndexes()
         {
             int rowsCnt = _trainResult.Count;
@@ -579,21 +576,26 @@ namespace PtProject.Classifier
 
             _indexes = new int[rowsCnt];
             i = 0;
+            if (sarr == null)
+            {
+                Logger.Log("sarr is null");
+                return;
+            }
             foreach (var kvp in sarr)
                 _indexes[i++] = Convert.ToInt32(double.Parse(kvp.Key));
         }
 
 
-        private int BucketNum = 0;
+        private int _bucketNum;
         /// <summary>
         /// Load trees from dump files
         /// </summary>
         public override int LoadClassifier()
         {
-            string TreesRoot = ConfigReader.Read("TreesRoot");
-            int BucketSize = int.Parse(ConfigReader.Read("BucketSize"));
+            string treesRoot = ConfigReader.Read("TreesRoot");
+            int bucketSize = int.Parse(ConfigReader.Read("BucketSize"));
 
-            string treesDir = TreesRoot == null ? (Environment.CurrentDirectory + "\\batches") : TreesRoot;
+            string treesDir = treesRoot ?? (Environment.CurrentDirectory + "\\batches");
             if (!Directory.Exists(treesDir))
             {
                 Logger.Log("directory " + treesDir + " doesn't exists");
@@ -603,19 +605,19 @@ namespace PtProject.Classifier
             _classifiers.Clear();
 
             var files = dinfo.GetFiles("*.dmp").OrderBy(f => f.Name).ToArray();
-            if (BucketSize > 0)
+            if (bucketSize > 0)
             {
-                files = files.Skip(BucketSize * BucketNum).Take(BucketSize).ToArray();
-                BucketNum++;
+                files = files.Skip(bucketSize * _bucketNum).Take(bucketSize).ToArray();
+                _bucketNum++;
             }
             foreach (var finfo in files)
             {
                 var cls = DecisionBatch.Load(finfo.FullName);
-                _classifiers.Add(BucketNum++, cls);
+                _classifiers.Add(_bucketNum++, cls);
                 Logger.Log(finfo.Name + " loaded;");
             }
             Logger.Log("all trees loaded;");
-            return BucketNum;
+            return _bucketNum;
         }
 
         /// <summary>

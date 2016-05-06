@@ -1,53 +1,49 @@
 ﻿using PtProject.Domain.Util;
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace PtProject.Classifier
 {
     public abstract class AbstractClassifier
     {
-        protected SortedDictionary<string, object> _prms;
+        protected SortedDictionary<string, object> Prms;
         public string TrainPath;
         public string TestPath;
         public string TargetName;
         public string IdName;
 
-        public bool IsParallel = false;
+        public bool IsParallel;
 
         public void PrintParams()
         {
-            foreach (var p in _prms.Keys)
-                Logger.Log(p + ": " + _prms[p]);
+            foreach (var p in Prms.Keys)
+                Logger.Log(p + ": " + Prms[p]);
         }
 
         protected AbstractClassifier(/*IDictionary<string,object> prms=null*/)
         {
-            _prms = new SortedDictionary<string, object>();
+            Prms = new SortedDictionary<string, object>();
             //foreach (var p in prms.Keys)
-            //    _prms.Add(p, prms[p]);
+            //    Prms.Add(p, prms[p]);
 
             string trp = ConfigReader.Read("TrainPath");
             if (trp != null) TrainPath = trp;
-            _prms.Add("TrainPath", TrainPath);
+            Prms.Add("TrainPath", TrainPath);
 
             string tsp = ConfigReader.Read("TestPath");
             if (tsp != null) TestPath = tsp;
-            _prms.Add("TestPath", TestPath);
+            Prms.Add("TestPath", TestPath);
 
             string tn = ConfigReader.Read("TargetName");
             if (tn != null) TargetName = tn;
-            _prms.Add("TargetName", TargetName);
+            Prms.Add("TargetName", TargetName);
 
             string inm = ConfigReader.Read("IdName");
             if (inm != null) IdName = inm;
-            _prms.Add("IdName", IdName);
+            Prms.Add("IdName", IdName);
 
             string isp = ConfigReader.Read("IsParallel");
             if (isp != null) IsParallel = bool.Parse(isp);
-            _prms.Add("IsParallel", IsParallel);
+            Prms.Add("IsParallel", IsParallel);
         }
 
         abstract public void LoadData();

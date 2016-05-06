@@ -5,20 +5,18 @@ using System.IO;
 using System.Linq;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Formatters.Binary;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace PtProject.Classifier
 {
     [Serializable]
     public class DecisionBatch
     {
-        public static int NCls = 0;
+        public static int NCls;
 
         /// <summary>
         /// List of decision trees
         /// </summary>
-        private List<DecisionTree> _batch;
+        private readonly List<DecisionTree> _batch;
 
         /// <summary>
         /// Classifier id
@@ -39,10 +37,7 @@ namespace PtProject.Classifier
         /// <summary>
         /// Количество деревьев в классификаторе
         /// </summary>
-        public int CountTreesInBatch
-        {
-            get { return _batch.Count(); }
-        }
+        public int CountTreesInBatch => _batch.Count;
 
         public void Clear()
         {
@@ -50,13 +45,12 @@ namespace PtProject.Classifier
         }
 
         /// <summary>
-        /// Predict probability by current forest (between 0 and 1)
+        /// Predict probability by current batch (between 0 and 1)
         /// </summary>
         /// <param name="sarr">object coeffs to classify</param>
         /// <returns></returns>
         public double[] PredictProba(double[] sarr)
         {
-            int ntrees = _batch.Count;
             int nclasses = _batch.First().NClasses;
             var sy = PredictCounts(sarr);
             
@@ -100,7 +94,7 @@ namespace PtProject.Classifier
                 Directory.CreateDirectory(treesDir);
             var dinfo = new DirectoryInfo(treesDir);
 
-            string fullname = dinfo.FullName + "\\" + "batch_" + string.Format("{0:0000.#}", Id) + ".dmp";
+            string fullname = dinfo.FullName + "\\" + "batch_" + $"{Id:0000.#}" + ".dmp";
             var fs = new FileStream(fullname, FileMode.Create, FileAccess.Write);
 
             var formatter = new BinaryFormatter();
@@ -136,7 +130,7 @@ namespace PtProject.Classifier
             }
             finally
             {
-                if (fs!=null) fs.Close();
+                fs?.Close();
             }
 
             return cls;

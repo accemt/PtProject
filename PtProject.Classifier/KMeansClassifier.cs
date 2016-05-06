@@ -18,15 +18,15 @@ namespace PtProject.Classifier
 
         public int KNeighbors = 2;
         public double Pow = 2;
-        public int NeighborsOffset = 0;
-        public int InfoLength = 0;
+        public int NeighborsOffset;
+        public int InfoLength;
 
         private int _nclasses = 2;
         private double[] _avgs;
         private double[] _vars;
         private double[] _corrs;
 
-        public KMeansClassifier(/*Dictionary<string,object> prms=null*/) : base(/*prms*/)
+        public KMeansClassifier(/*Dictionary<string,object> prms=null*/) //: base(/*prms*/)
         {
             LoadDefaultParams();
         }
@@ -38,19 +38,19 @@ namespace PtProject.Classifier
         {
             string kn = ConfigReader.Read("KNeighbors");
             if (kn != null) KNeighbors = int.Parse(kn);
-            _prms.Add("KNeighbors", KNeighbors);
+            Prms.Add("KNeighbors", KNeighbors);
 
             string pw = ConfigReader.Read("Pow");
             if (pw != null) Pow = double.Parse(pw.Replace(',', '.'), CultureInfo.InvariantCulture);
-            _prms.Add("Pow", Pow);
+            Prms.Add("Pow", Pow);
 
             string nofs = ConfigReader.Read("NeighborsOffset");
             if (nofs != null) NeighborsOffset = int.Parse(nofs);
-            _prms.Add("NeighborsOffset", NeighborsOffset);
+            Prms.Add("NeighborsOffset", NeighborsOffset);
 
             string ilen = ConfigReader.Read("InfoLength");
             if (ilen != null) InfoLength = int.Parse(ilen);
-            _prms.Add("InfoLength", InfoLength);
+            Prms.Add("InfoLength", InfoLength);
         }
 
         public override ClassifierResult Build()
@@ -60,8 +60,8 @@ namespace PtProject.Classifier
             _corrs = new double[_trainLoader.NVars];
 
             double tavg = 0;
-            double t1sq = 0;
-            double t2sq = 0;
+            double t1Sq = 0;
+            double t2Sq = 0;
 
             // sum per column
             foreach (var row in _trainLoader.Rows)
@@ -88,14 +88,14 @@ namespace PtProject.Classifier
                     _vars[i] += Math.Pow(row.Coeffs[i] - _avgs[i], 2);
                     double t1 = row.Coeffs[i] - _avgs[i];
                     _corrs[i] += t1 * t2;
-                    t1sq += Math.Pow(t1, 2);
-                    t2sq += Math.Pow(t2, 2);
+                    t1Sq += Math.Pow(t1, 2);
+                    t2Sq += Math.Pow(t2, 2);
                 }
             }
             for (int i = 0; i < _avgs.Length; i++)
             {
                 _vars[i] /= (_trainLoader.TotalDataLines-1);
-                _corrs[i] /= Math.Sqrt(t1sq) * Math.Sqrt(t2sq);
+                _corrs[i] /= Math.Sqrt(t1Sq) * Math.Sqrt(t2Sq);
                 _corrs[i] = Math.Abs(_corrs[i]);
                 if (double.IsNaN(_vars[i])) _vars[i] = 0;
                 if (double.IsNaN(_corrs[i])) _corrs[i] = 0;
@@ -149,7 +149,7 @@ namespace PtProject.Classifier
 
             var source = _trainLoader.Rows;
             var tlist = new ConcurrentBag<Tuple<double, double>>();
-            var taskList = new List<Tuple<double, double>>();
+            List<Tuple<double, double>> taskList;
 
             if (IsParallel)
                 taskList = (from row in source.AsParallel()
