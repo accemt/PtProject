@@ -7,6 +7,7 @@ using PtProject.Domain.Util;
 
 namespace PtProject.Domain
 {
+    [Serializable]
     public class FinalFuncResult
     {
         public double AUC;
@@ -21,7 +22,7 @@ namespace PtProject.Domain
 
         public override string ToString()
         {
-            return AUC.ToString("F03");
+            return AUC.ToString("F04");
         }
     }
 }

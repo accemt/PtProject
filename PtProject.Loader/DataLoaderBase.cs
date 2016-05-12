@@ -39,7 +39,7 @@ namespace PtProject.Loader
         public int MaxRowsLoaded = 0;
 
         /// <summary>
-        /// skeep column loading if rnd() < LoadFactor
+        /// skeep column loading if rnd less than LoadFactor
         /// </summary>
         public double LoadFactor = 1;
 
@@ -50,6 +50,7 @@ namespace PtProject.Loader
         public string TargetName { get; protected set; }
         public string IdName { get; protected set; }
         public Dictionary<string, int> Ids { get; protected set; }
+        public bool UseLongConverter { get; set; }
 
         /// <summary>
         /// columns for skeeping

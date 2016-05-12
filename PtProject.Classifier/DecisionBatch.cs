@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Formatters.Binary;
+using PtProject.Domain;
 
 namespace PtProject.Classifier
 {
@@ -22,6 +23,8 @@ namespace PtProject.Classifier
         /// Classifier id
         /// </summary>
         public int Id { get; private set; }
+
+        public FinalFuncResult OutBagEstimations { get; private set; }
 
         public DecisionBatch()
         {
@@ -55,7 +58,7 @@ namespace PtProject.Classifier
             var sy = PredictCounts(sarr);
             
             for (int i=0;i<nclasses;i++)
-                sy[i] /= nclasses;
+                sy[i] /= CountTreesInBatch;
 
             return sy;
         }
@@ -94,7 +97,7 @@ namespace PtProject.Classifier
                 Directory.CreateDirectory(treesDir);
             var dinfo = new DirectoryInfo(treesDir);
 
-            string fullname = dinfo.FullName + "\\" + "batch_" + $"{Id:0000.#}" + ".dmp";
+            string fullname = dinfo.FullName + "\\" + "batch_" + $"{Id:00000.#}" + ".dmp";
             var fs = new FileStream(fullname, FileMode.Create, FileAccess.Write);
 
             var formatter = new BinaryFormatter();
@@ -134,6 +137,74 @@ namespace PtProject.Classifier
             }
 
             return cls;
+        }
+
+        /// <summary>
+        /// Creates one classifier (batch of trees)
+        /// </summary>
+        /// <returns></returns>
+        public static DecisionBatch CreateBatch(double[,] xy, int treesInBatch, int nclasses, double rfcoeff, double varscoeff, int[] idx, bool parallel)
+        {
+            var batch = new DecisionBatch();
+
+
+            IEnumerable<int> source = Enumerable.Range(1, treesInBatch);
+            List<DecisionTree> treeList;
+
+            if (parallel)
+                treeList = (from n in source.AsParallel()
+                            select DecisionTree.CreateTree(idx, xy, nclasses, rfcoeff, varscoeff)
+                        ).ToList();
+            else
+                treeList = (from n in source
+                            select DecisionTree.CreateTree(idx, xy, nclasses, rfcoeff, varscoeff)
+                        ).ToList();
+
+            treeList.ForEach(batch.AddTree);
+            CalcOutOfTheBagMetrics(treeList, xy, batch);
+
+            return batch;
+        }
+
+        private static void CalcOutOfTheBagMetrics(List<DecisionTree> treeList, double[,] xy, DecisionBatch batch)
+        {
+            var rdict = new Dictionary<int, int>();
+            foreach (var tree in treeList)
+            {
+                foreach (int id in tree.RowIndexes)
+                {
+                    if (!rdict.ContainsKey(id))
+                        rdict.Add(id, 0);
+                    rdict[id]++;
+                }
+            }
+
+            int npoints = xy.GetLength(0);
+            int nvars = xy.GetLength(1) - 1;
+
+            var rlist = new RocItem[npoints - rdict.Count]; // массив для оценки результата
+            double accCoeff = rdict.Count / (double)npoints;
+
+            for (int i=0, k=0; i < npoints; i++)
+            {
+                if (rdict.ContainsKey(i)) continue;
+
+                var tobj = new double[nvars];
+                for (int j = 0; j < nvars; j++)
+                    tobj[j] = xy[i, j];
+
+                rlist[k] = new RocItem();
+                double[] tprob = batch.PredictProba(tobj);
+                rlist[k].Prob = tprob[1];
+                rlist[k].Predicted = tprob[1]>0.5?1:0;
+                rlist[k].Target = Convert.ToInt32(xy[i, nvars]);
+                k++;
+            }
+
+            Array.Sort(rlist, (o1, o2) => (1 - o1.Prob).CompareTo(1 - o2.Prob));
+            batch.OutBagEstimations = ResultCalc.GetResult(rlist, 0.05);
+
+            Logger.Log("accCoeff: " + accCoeff + "; outofbag:" + batch.OutBagEstimations.AUC);
         }
     }
 }

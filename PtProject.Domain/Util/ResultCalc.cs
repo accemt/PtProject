@@ -120,6 +120,7 @@ namespace PtProject.Domain.Util
         }
     }
 
+    [Serializable]
     public class RocPoint
     {
         public double X;

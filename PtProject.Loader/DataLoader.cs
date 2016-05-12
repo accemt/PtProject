@@ -6,16 +6,15 @@ using System.Text;
 using System.Linq;
 using PtProject.Domain;
 using PtProject.Domain.Util;
-using System.Configuration;
 
 namespace PtProject.Loader
 {
     public class DataLoader<T> : DataLoaderBase
     {
         /// <summary>
-        /// // By default loading strategy data will be load in that list
+        /// By default loading strategy data will be load in that list
         /// </summary>
-        public List<DataRow<T>> Rows = new List<DataRow<T>>();
+        public readonly List<DataRow<T>> Rows = new List<DataRow<T>>();
 
         /// <summary>
         /// For machine-learning data will be load in that array
@@ -133,7 +132,7 @@ namespace PtProject.Loader
                             {
                                 if (!FileIdxByColumn.ContainsKey(TargetName))
                                 {
-                                    Logger.Log("Warning: data don't have a target (" + TargetName + ") column, exiting");
+                                    Logger.Log("Warning: data ("+filename+") doesn't have a target (" + TargetName + ") column");
                                     //break;
                                 }
                                 else
@@ -271,7 +270,7 @@ namespace PtProject.Loader
             catch (Exception e)
             {
                 Logger.Log(e);
-                throw e;
+                throw;
             }
         }
 
@@ -312,13 +311,10 @@ namespace PtProject.Loader
                 blocks = modstring.ToLower().Replace(',', '.').Split(SplitSymbol);
             else
                 blocks = modstring.ToLower().Split(SplitSymbol);
-            if (blocks != null)
+            for (int i = 0; i < blocks.Length; i++)
             {
-                for (int i = 0; i < blocks.Length; i++)
-                {
-                    if (blocks[i] == null) continue;
-                    blocks[i] = blocks[i].Trim('"');
-                }
+                if (blocks[i] == null) continue;
+                blocks[i] = blocks[i].Trim('"');
             }
 
             return blocks;
@@ -372,7 +368,7 @@ namespace PtProject.Loader
             {
                 using (var sr = new StreamReader(new FileStream(filename, FileMode.Open, FileAccess.Read), Encoding.GetEncoding(1251)))
                 {
-                    string nextline = null;
+                    string nextline;
                     int idx = 0;
                     while ((nextline = sr.ReadLine()) != null)
                     {
@@ -394,9 +390,11 @@ namespace PtProject.Loader
 
         private T ParseValue(string str)
         {
+            if (string.IsNullOrWhiteSpace(str))
+                str = string.Empty;
+
             double val;
             bool isok = double.TryParse(str, NumberStyles.Any, CultureInfo.InvariantCulture, out val);
-            T fval = default(T);
             if (!isok)
             {
                 DateTime dval;
@@ -414,16 +412,16 @@ namespace PtProject.Loader
                         int ival = -1;
                         if (!string.IsNullOrWhiteSpace(str))
                         {
-                            var md5hash = ComputeMD5Hash(GetBytes(str));
-                            var hash4 = Compute4BytesHash(md5hash);
-                            ival = (ushort)(BitConverter.ToInt32(md5hash, 0));
-                        } 
+                            var hash = ComputeMd5Hash(GetBytes(str));
+                            if (!UseLongConverter) hash = Compute4BytesHash(hash);
+                            ival = (ushort)BitConverter.ToInt32(hash, 0);
+                        }
                         StringValues.Add(str, ival);
                     }
                     val = StringValues[str];
                 }
             }
-            fval = (T)Convert.ChangeType(val, typeof(T));
+            var fval = (T)Convert.ChangeType(val, typeof(T));
             return fval;
         }
 
@@ -443,10 +441,10 @@ namespace PtProject.Loader
             return sarr;
         }
 
-        static System.Security.Cryptography.MD5 md5Algorithm = System.Security.Cryptography.MD5.Create();
-        static byte[] ComputeMD5Hash(byte[] data)
+        readonly System.Security.Cryptography.MD5 _md5Algorithm = System.Security.Cryptography.MD5.Create();
+        byte[] ComputeMd5Hash(byte[] data)
         {
-            return md5Algorithm.ComputeHash(data);
+            return _md5Algorithm.ComputeHash(data);
         }
 
         static byte[] GetBytes(string str)

@@ -1,12 +1,7 @@
 ﻿using PtProject.Classifier;
 using PtProject.Domain.Util;
 using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace PtProject.Train
 {
@@ -14,12 +9,12 @@ namespace PtProject.Train
     {   
         static void Main(string[] args)
         {
-            string ClassifierType = ConfigReader.Read("ClassifierType");
-            Logger.Log("ClassifierType:" + ClassifierType);
+            string classifierType = ConfigReader.Read("classifierType");
+            Logger.Log("classifierType:" + classifierType);
 
             try
             {
-                AbstractClassifier cls = LoadClassifier(ClassifierType);
+                AbstractClassifier cls = LoadClassifier(classifierType);
 
                 cls.PrintParams();
                 cls.LoadData();
@@ -34,12 +29,11 @@ namespace PtProject.Train
             }
         }
 
-        private static AbstractClassifier LoadClassifier(string ClassifierType)
+        private static AbstractClassifier LoadClassifier(string classifierType)
         {
-            AbstractClassifier cls = null;
             var assm = Assembly.LoadFrom("PtProject.Classifier.dll");
-            Type clsType = assm.GetType(ClassifierType);
-            cls = (AbstractClassifier)Activator.CreateInstance(clsType);
+            Type clsType = assm.GetType(classifierType);
+            var cls = (AbstractClassifier)Activator.CreateInstance(clsType);
             return cls;
         }
     }

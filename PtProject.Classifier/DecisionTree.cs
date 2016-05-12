@@ -16,6 +16,7 @@ namespace PtProject.Classifier
         public int NVars { get; private set; }
         public int ModNvars { get; private set; }
         public int[] VarIndexes { get; private set; }
+        public int[] RowIndexes { get; private set; }
 
         public int Id;
 
@@ -27,7 +28,7 @@ namespace PtProject.Classifier
         public double[] PredictCounts(double[] sarr)
         {
             if (sarr.Length != NVars)
-                throw new InvalidOperationException("NVars != sarr.Length ("+sarr.Length + "!=" + NVars+")");
+                throw new InvalidOperationException("Error: NVars != sarr.Length ("+sarr.Length + "!=" + NVars+"); exiting...");
 
             double[] sy;
 
@@ -63,7 +64,7 @@ namespace PtProject.Classifier
         /// <param name="modNvars"></param>
         /// <param name="vidxes"></param>
         /// <returns></returns>
-        private static DecisionTree CreateTree(double[,] xy, int nclasses, int nvars, int npoints, int modNvars, int[] vidxes)
+        private static DecisionTree CreateTree(double[,] xy, int nclasses, int nvars, int npoints, int modNvars, int[] vidxes, int[] ridxes)
         {
             DecisionTree result;
 
@@ -81,6 +82,7 @@ namespace PtProject.Classifier
                 result.NVars = nvars;
                 result.ModNvars = modNvars;
                 result.VarIndexes = vidxes;
+                result.RowIndexes = ridxes;
             }
             catch (Exception e)
             {
@@ -94,7 +96,7 @@ namespace PtProject.Classifier
         public static DecisionTree CreateTree(int[] indexes, double[,] xy, int nclasses, double pcoeff, double vcoeff)
         {
             if (xy == null)
-                throw new ArgumentException("xy is null", "xy");
+                throw new ArgumentException("xy is null", nameof(xy));
 
             int npoints = xy.GetLength(0);
             int nvars = xy.GetLength(1)-1;
@@ -103,7 +105,7 @@ namespace PtProject.Classifier
             int modNvars = (int)(nvars * vcoeff); // столько переменных используем
 
             if (modNvars < 1)
-                throw new ArgumentException("vcoeff too small", "vcoeff");
+                throw new ArgumentException("vcoeff too small", nameof(vcoeff));
 
             int[] vidxes = Enumerable.Range(0, nvars).ToArray();
             if (modNvars < nvars)
@@ -111,12 +113,12 @@ namespace PtProject.Classifier
 
             double[,] nxy = new double[modNpoints, modNvars + 1]; // сами значения
 
+            int nk = 0; // столько нагенерировали
+            var exists = new Dictionary<int, int>();
+
             if (indexes == null)
             {
                 // basic tree
-                int nk = 0; // столько нагенерировали
-                var exists = new Dictionary<int, int>();
-
                 while (nk < modNpoints)
                 {
                     for (int i = 0; i < modNpoints; i++)
@@ -141,8 +143,6 @@ namespace PtProject.Classifier
             else
             {
                 // tree, with distribution selection
-                int nk = 0; // столько нагенерировали
-                var exists = new Dictionary<int, int>();
 
                 while (nk < modNpoints)
                 {
@@ -167,7 +167,9 @@ namespace PtProject.Classifier
                 }
             }
 
-            return CreateTree(nxy, nclasses, nvars, modNpoints, modNvars, vidxes);
+            var ridxes = exists.Keys.ToArray();
+
+            return CreateTree(nxy, nclasses, nvars, modNpoints, modNvars, vidxes, ridxes);
         }
 
         private static int CreateId()
