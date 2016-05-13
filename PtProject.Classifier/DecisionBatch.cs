@@ -26,6 +26,8 @@ namespace PtProject.Classifier
 
         public FinalFuncResult OutBagEstimations { get; private set; }
 
+        private alglib.logitmodel _logitModel;
+
         public DecisionBatch()
         {
             _batch = new List<DecisionTree>();
@@ -55,10 +57,42 @@ namespace PtProject.Classifier
         public double[] PredictProba(double[] sarr)
         {
             int nclasses = _batch.First().NClasses;
-            var sy = PredictCounts(sarr);
-            
-            for (int i=0;i<nclasses;i++)
-                sy[i] /= CountTreesInBatch;
+            double[] ret;
+            if (_logitModel == null)
+            {
+                ret = PredictCounts(sarr);
+
+                for (int i = 0; i < nclasses; i++)
+                    ret[i] /= CountTreesInBatch;
+            }
+            else
+            {
+                var bytree = PredictByTree(sarr);
+                ret = new double[nclasses];
+                alglib.mnlprocess(_logitModel, bytree, ref ret);
+            }
+
+            return ret;
+        }
+
+        public double[] PredictByTree(double[] sarr)
+        {
+            int ntrees = _batch.Count;
+            if (ntrees == 0)
+                throw new InvalidOperationException("forest is empty");
+
+            int nclasses = _batch.First().NClasses;
+
+            var sy = new double[CountTreesInBatch];
+            int k = 0;
+            foreach (var tree in _batch)
+            {
+                if (tree.NClasses != nclasses)
+                    throw new InvalidOperationException("every tree must have equal NClasses parameter");
+
+                var probs = tree.PredictCounts(sarr);
+                sy[k++] = probs[1];
+            }
 
             return sy;
         }
@@ -181,8 +215,10 @@ namespace PtProject.Classifier
 
             int npoints = xy.GetLength(0);
             int nvars = xy.GetLength(1) - 1;
+            int tnpoints = npoints - rdict.Count;
 
-            var rlist = new RocItem[npoints - rdict.Count]; // массив для оценки результата
+            var rlist = new RocItem[tnpoints]; // массив для оценки результата
+            var ntrain = new double[tnpoints, batch.CountTreesInBatch+1]; // массив для оценки результата
             double accCoeff = rdict.Count / (double)npoints;
 
             for (int i=0, k=0; i < npoints; i++)
@@ -198,6 +234,12 @@ namespace PtProject.Classifier
                 rlist[k].Prob = tprob[1];
                 rlist[k].Predicted = tprob[1]>0.5?1:0;
                 rlist[k].Target = Convert.ToInt32(xy[i, nvars]);
+
+                double[] bytree = batch.PredictByTree(tobj);
+                for (int j = 0; j < batch.CountTreesInBatch; j++)
+                    ntrain[k, j] = bytree[j];
+                ntrain[k, batch.CountTreesInBatch] = xy[i, nvars];
+
                 k++;
             }
 
@@ -205,6 +247,10 @@ namespace PtProject.Classifier
             batch.OutBagEstimations = ResultCalc.GetResult(rlist, 0.05);
 
             Logger.Log("accCoeff: " + accCoeff + "; outofbag:" + batch.OutBagEstimations.AUC);
+
+            int info;
+            alglib.mnlreport rep;
+            alglib.mnltrainh(ntrain, tnpoints, batch.CountTreesInBatch, 2, out info, out batch._logitModel, out rep);
         }
     }
 }

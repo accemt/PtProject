@@ -4426,6 +4426,7 @@ public partial class alglib
     /*************************************************************************
 
     *************************************************************************/
+    [Serializable]
     public class logitmodel : alglibobject
     {
         //
@@ -23480,6 +23481,7 @@ public partial class alglib
     }
     public class logit
     {
+        [Serializable]
         public class logitmodel : apobject
         {
             public double[] w;

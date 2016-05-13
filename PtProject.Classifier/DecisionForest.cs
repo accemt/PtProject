@@ -306,7 +306,8 @@ namespace PtProject.Classifier
         /// <returns>Результат классификации</returns>
         private FinalFuncResult GetTestMetricsAccumulated(DecisionBatch cls)
         {
-            _nbTest += cls.CountTreesInBatch; // обновляем общее кол-во деревьев
+            //_nbTest += cls.CountTreesInBatch; // обновляем общее кол-во деревьев
+            _nbTest += 1; // обновляем общее кол-во деревьев
             return GetMetricsAccumulated(cls, _testProbSum, _testProbAvg, _testResult, _nbTest, GetTestClassificationCounts);
         }
 
@@ -317,7 +318,8 @@ namespace PtProject.Classifier
         /// <returns>Результат классификации</returns>
         private FinalFuncResult GetTrainMetricsAccumulated(DecisionBatch cls)
         {
-            _nbTrain += cls.CountTreesInBatch; // обновляем общее кол-во деревьев
+            //_nbTrain += cls.CountTreesInBatch; // обновляем общее кол-во деревьев
+            _nbTrain += 1; // обновляем общее кол-во деревьев
             return GetMetricsAccumulated(cls, _trainProbSum, _trainProbAvg, _trainResult, _nbTrain, GetTrainClassificationCounts);
         }
 
@@ -381,7 +383,8 @@ namespace PtProject.Classifier
             // пробегаем по всем клиентски данным и сохраняем результат
             foreach (string id in _testDataDict.Keys)
             {
-                var y = batch.PredictCounts(_testDataDict[id]);
+                //var y = batch.PredictCounts(_testDataDict[id]);
+                var y = batch.PredictProba(_testDataDict[id]);
                 if (!probDict.ContainsKey(id))
                     probDict.Add(id, y[1]);
             }
@@ -392,9 +395,9 @@ namespace PtProject.Classifier
         /// <summary>
         /// Расчет классификации по тестовому обучающему на одном классификаторе
         /// </summary>
-        /// <param name="cls"></param>
+        /// <param name="batch"></param>
         /// <returns>Количество деревьев, проголосовавших за каждый класс</returns>
-        private Dictionary<string, double> GetTrainClassificationCounts(DecisionBatch cls)
+        private Dictionary<string, double> GetTrainClassificationCounts(DecisionBatch batch)
         {
             var probDict = new Dictionary<string, double>();
 
@@ -408,7 +411,8 @@ namespace PtProject.Classifier
                 for (int j = 0; j < vars; j++)
                     cdata[j] = _trainLoader.LearnRows[i, j];
 
-                var y = cls.PredictCounts(cdata);
+                //var y = batch.PredictCounts(cdata);
+                var y = batch.PredictProba(cdata);
                 string id = i.ToString();
                 if (!probDict.ContainsKey(id))
                     probDict.Add(id, y[1]);
