@@ -68,6 +68,7 @@ namespace PtProject.Classifier
         public double OutliersPrct;
         public string IndexSortOrder = "none";
         public bool IsSaveTrees;
+        public bool UseBatchLogit = false;
 
         /// <summary>
         /// Dict for all batches id->batch
@@ -128,6 +129,10 @@ namespace PtProject.Classifier
             string vcf = ConfigReader.Read("VarsCoeff");
             if (vcf != null) VarsCoeff = double.Parse(vcf.Replace(',', '.'), CultureInfo.InvariantCulture);
             Prms.Add("VarsCoeff", VarsCoeff);
+
+            string ubt = ConfigReader.Read("UseBatchLogit");
+            if (ubt != null) UseBatchLogit = bool.Parse(ubt);
+            Prms.Add("UseBatchLogit", UseBatchLogit);
         }
 
         public void AddDropColumn(string col)
@@ -203,13 +208,15 @@ namespace PtProject.Classifier
                         cls = DecisionBatch.Load(Environment.CurrentDirectory + "\\batches\\" + "batch_" + $"{i:0000.#}" + ".dmp");
                         if (cls == null)
                         {
-                            cls = DecisionBatch.CreateBatch(_trainLoader.LearnRows, TreesInBatch, _nclasses, RfCoeff, VarsCoeff, null, IsParallel);
+                            cls = DecisionBatch.CreateBatch(_trainLoader.LearnRows, TreesInBatch, _nclasses, RfCoeff, 
+                                VarsCoeff,null, IsParallel, UseBatchLogit);
                             if (IsSaveTrees) cls.Save();
                         }
                     }
                     else
                     {
-                        cls = DecisionBatch.CreateBatch(_trainLoader.LearnRows, TreesInBatch, _nclasses, RfCoeff, VarsCoeff, null, IsParallel);
+                        cls = DecisionBatch.CreateBatch(_trainLoader.LearnRows, TreesInBatch, _nclasses, RfCoeff,
+                            VarsCoeff, null, IsParallel, UseBatchLogit);
                         if (IsSaveTrees) cls.Save();
                     }
 
@@ -217,7 +224,7 @@ namespace PtProject.Classifier
                     var testRes = GetTestMetricsAccumulated(cls);
                     var trainRes = GetTrainMetricsAccumulated(cls);
 
-                    Logger.Log("batch=" + i + " ok; test AUC=" + testRes.AUC.ToString("F10") + "; train AUC=" + trainRes.AUC.ToString("F10"));
+                    Logger.Log("batch=" + i + " ok; train AUC=" + trainRes.AUC.ToString("F10") + " test AUC = " + testRes.AUC.ToString("F10"));
                     sw.WriteLine(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + ";" + i + ";" + trainRes.AUC + ";" + testRes.AUC + ";none");
                     sw.Flush();
 
@@ -238,11 +245,12 @@ namespace PtProject.Classifier
                     // строим классификаторы и выбираем лучший
                     for (int k = 0; k < BatchesInBruteForce; k++)
                     {
-                        var scls = DecisionBatch.CreateBatch(_trainLoader.LearnRows, TreesInBatch, _nclasses, RfCoeff, VarsCoeff, _indexes, IsParallel);
+                        var scls = DecisionBatch.CreateBatch(_trainLoader.LearnRows, TreesInBatch, _nclasses, RfCoeff,
+                            VarsCoeff, _indexes, IsParallel, UseBatchLogit);
 
                         // расчитываем метрики для тестового множества
                         var trainCntRes = GetTrainClassificationCounts(scls);
-                        int cnt = scls.CountTreesInBatch;
+                        int cnt = UseBatchLogit ? 1 : scls.CountTreesInBatch;
 
                         var rlist = new RocItem[_trainResult.Count]; // массив для оценки результата
                                                                         // находим статистики классификации
@@ -287,7 +295,7 @@ namespace PtProject.Classifier
                     }
 
                     ret.AddStepResult(testRes, i);
-                    Logger.Log("batch=" + i + " ok; train AUC=" + trainRes.AUC.ToString("F10") + "test AUC = " + testRes.AUC.ToString("F10"));
+                    Logger.Log("batch=" + i + " ok; train AUC=" + trainRes.AUC.ToString("F10") + " test AUC = " + testRes.AUC.ToString("F10"));
                     sw.WriteLine(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + ";" + i + ";" + trainRes.AUC + ";" + testRes.AUC + ";" + IndexSortOrder);
                     sw.Flush();
                 }
@@ -306,8 +314,7 @@ namespace PtProject.Classifier
         /// <returns>Результат классификации</returns>
         private FinalFuncResult GetTestMetricsAccumulated(DecisionBatch cls)
         {
-            //_nbTest += cls.CountTreesInBatch; // обновляем общее кол-во деревьев
-            _nbTest += 1; // обновляем общее кол-во деревьев
+            _nbTest += UseBatchLogit ? 1 : cls.CountTreesInBatch; // обновляем общее кол-во деревьев
             return GetMetricsAccumulated(cls, _testProbSum, _testProbAvg, _testResult, _nbTest, GetTestClassificationCounts);
         }
 
@@ -318,8 +325,7 @@ namespace PtProject.Classifier
         /// <returns>Результат классификации</returns>
         private FinalFuncResult GetTrainMetricsAccumulated(DecisionBatch cls)
         {
-            //_nbTrain += cls.CountTreesInBatch; // обновляем общее кол-во деревьев
-            _nbTrain += 1; // обновляем общее кол-во деревьев
+            _nbTrain += UseBatchLogit ? 1 : cls.CountTreesInBatch; // обновляем общее кол-во деревьев
             return GetMetricsAccumulated(cls, _trainProbSum, _trainProbAvg, _trainResult, _nbTrain, GetTrainClassificationCounts);
         }
 

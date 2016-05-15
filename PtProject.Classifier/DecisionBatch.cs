@@ -25,6 +25,7 @@ namespace PtProject.Classifier
         public int Id { get; private set; }
 
         public FinalFuncResult OutBagEstimations { get; private set; }
+        public FinalFuncResult OutBagEstimationsLogit { get; private set; }
 
         private alglib.logitmodel _logitModel;
 
@@ -177,7 +178,8 @@ namespace PtProject.Classifier
         /// Creates one classifier (batch of trees)
         /// </summary>
         /// <returns></returns>
-        public static DecisionBatch CreateBatch(double[,] xy, int treesInBatch, int nclasses, double rfcoeff, double varscoeff, int[] idx, bool parallel)
+        public static DecisionBatch CreateBatch(double[,] xy, int treesInBatch, int nclasses, double rfcoeff,
+            double varscoeff, int[] idx, bool parallel, bool useLogit)
         {
             var batch = new DecisionBatch();
 
@@ -195,12 +197,12 @@ namespace PtProject.Classifier
                         ).ToList();
 
             treeList.ForEach(batch.AddTree);
-            CalcOutOfTheBagMetrics(treeList, xy, batch);
+            CalcOutOfTheBagMetrics(treeList, xy, batch, useLogit);
 
             return batch;
         }
 
-        private static void CalcOutOfTheBagMetrics(List<DecisionTree> treeList, double[,] xy, DecisionBatch batch)
+        private static void CalcOutOfTheBagMetrics(List<DecisionTree> treeList, double[,] xy, DecisionBatch batch, bool useLogit)
         {
             var rdict = new Dictionary<int, int>();
             foreach (var tree in treeList)
@@ -246,11 +248,34 @@ namespace PtProject.Classifier
             Array.Sort(rlist, (o1, o2) => (1 - o1.Prob).CompareTo(1 - o2.Prob));
             batch.OutBagEstimations = ResultCalc.GetResult(rlist, 0.05);
 
-            Logger.Log("accCoeff: " + accCoeff + "; outofbag:" + batch.OutBagEstimations.AUC);
+            if (useLogit)
+            {
+                int info;
+                alglib.mnlreport rep;
+                alglib.mnltrainh(ntrain, tnpoints, batch.CountTreesInBatch, 2, out info, out batch._logitModel, out rep);
 
-            int info;
-            alglib.mnlreport rep;
-            alglib.mnltrainh(ntrain, tnpoints, batch.CountTreesInBatch, 2, out info, out batch._logitModel, out rep);
+                for (int i = 0, k = 0; i < npoints; i++)
+                {
+                    if (rdict.ContainsKey(i)) continue;
+
+                    var tobj = new double[nvars];
+                    for (int j = 0; j < nvars; j++)
+                        tobj[j] = xy[i, j];
+
+                    rlist[k] = new RocItem();
+                    double[] tprob = batch.PredictProba(tobj);
+                    rlist[k].Prob = tprob[1];
+                    rlist[k].Predicted = tprob[1] > 0.5 ? 1 : 0;
+                    rlist[k].Target = Convert.ToInt32(xy[i, nvars]);
+
+                    k++;
+                }
+
+                Array.Sort(rlist, (o1, o2) => (1 - o1.Prob).CompareTo(1 - o2.Prob));
+                batch.OutBagEstimationsLogit = ResultCalc.GetResult(rlist, 0.05);
+            }
+
+            Logger.Log("accCoeff: " + accCoeff + "; bag:" + batch.OutBagEstimations.AUC + "; logit:" + batch.OutBagEstimationsLogit?.AUC);
         }
     }
 }
