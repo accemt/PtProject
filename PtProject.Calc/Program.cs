@@ -16,41 +16,42 @@ namespace PtProject.Calc
     {
         public static void Main(string[] args)
         {
-            string DataPath = ConfigReader.Read("DataPath");
-            string ConfPath = ConfigReader.Read("ConfPath");
-            int BucketSize = int.Parse(ConfigReader.Read("BucketSize"));
-            string ClassifierType = ConfigReader.Read("ClassifierType");
-            string IdName = ConfigReader.Read("IdName");
-            string TargetName = ConfigReader.Read("TargetName");
+            string dataPath = ConfigReader.Read("DataPath");
+            string confPath = ConfigReader.Read("ConfPath");
+            int bucketSize = int.Parse(ConfigReader.Read("BucketSize"));
+            string classifierType = ConfigReader.Read("ClassifierType");
+            string idName = ConfigReader.Read("IdName");
+            string targetName = ConfigReader.Read("TargetName");
 
-            Logger.Log("DataPath = " + DataPath);
-            Logger.Log("ConfPath = " + ConfPath);
-            Logger.Log("ClassifierType = " + ClassifierType);
-            Logger.Log("IdName = " + IdName);
-            Logger.Log("TargetName = " + TargetName);
+            Logger.Log("DataPath = " + dataPath);
+            Logger.Log("ConfPath = " + confPath);
+            Logger.Log("BucketSize = " + bucketSize);
+            Logger.Log("ClassifierType = " + classifierType);
+            Logger.Log("IdName = " + idName);
+            Logger.Log("TargetName = " + targetName);
 
             try
             {
                 // loading modifier
                 DataModifier modifier = null;
-                if (ConfPath != null)
-                    modifier = new DataModifier(File.ReadAllLines(ConfPath));
+                if (confPath != null)
+                    modifier = new DataModifier(File.ReadAllLines(confPath));
 
                 // loading classifier
-                AbstractClassifier cls = LoadClassifier(ClassifierType);
+                AbstractClassifier cls = LoadClassifier(classifierType);
 
-                //if (BucketSize > 0)
-                //{
-                //    // by tree bucket mode
-                //    Logger.Log("by tree bucket mode, BucketSize = " + BucketSize);
-                //    ByBucketMode(DataPath, IdName, TargetName, BucketSize, modifier);
-                //}
-                //else
-                //{
-                // by client mode
-                Logger.Log("by client mode");
-                ByClientMode(DataPath, IdName, TargetName, modifier, cls);
-                //}
+                if (bucketSize > 0)
+                {
+                    // by tree bucket mode
+                    Logger.Log("by tree bucket mode, BucketSize = " + bucketSize);
+                    ByBucketMode(dataPath, idName, targetName, bucketSize, modifier, cls);
+                }
+                else
+                {
+                    // by client mode
+                    Logger.Log("by client mode");
+                    ByClientMode(dataPath, idName, targetName, modifier, cls);
+                }
             }
             catch (Exception e)
             {
@@ -130,13 +131,17 @@ namespace PtProject.Calc
             return mvals;
         }
 
-        /*
-        private static void ByBucketMode(string dataPath, string ids, string target, int bucketsize, DataModifier modifier)
+        private static void ByBucketMode(string dataPath, string ids, string target, int bucketsize, DataModifier modifier, AbstractClassifier acls)
         {
             try
             {
                 // classifier
-                var cls = new RFClassifier();
+                var cls = acls as DecisionForest;
+                if (cls == null)
+                {
+                    Logger.Log("classifier is not DecisionForest");
+                    return;
+                }
 
                 // loading data
                 var loader = target == null ? new DataLoader() : new DataLoader(target);
@@ -152,24 +157,15 @@ namespace PtProject.Calc
                     Logger.Log("Processing bucket #" + idx);
 
                     cls.Clear();
-                    cnt = cls.LoadTrees(null, bucketsize, idx);
+                    cnt = cls.LoadClassifier();
                     if (cnt > 0)
                     {
                         totaltrees += cls.CountAllTrees;
 
-                        int nc = 0;
                         // calculating prob for each row
                         foreach (var row in loader.Rows)
                         {
-                            nc++;
-
-                            var vals = new Dictionary<string, double>();
-                            for (int i = 0; i < row.Coeffs.Length; i++)
-                            {
-                                string colname = loader.RowColumnByIdx[i];
-                                vals.Add(colname, row.Coeffs[i]);
-                            }
-                            var mvals = modifier.GetModifiedDataVector(vals);
+                            var mvals = GetRowValues(modifier, loader, row);
                             var prob = cls.PredictCounts(mvals);
 
                             if (!probDict.ContainsKey(row.Id))
@@ -204,6 +200,5 @@ namespace PtProject.Calc
                 Logger.Log(e);
             }
         }
-        */
     }
 }

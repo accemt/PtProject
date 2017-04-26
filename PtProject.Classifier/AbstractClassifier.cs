@@ -5,13 +5,13 @@ namespace PtProject.Classifier
 {
     public abstract class AbstractClassifier
     {
-        protected SortedDictionary<string, object> Prms;
-        public string TrainPath;
-        public string TestPath;
-        public string TargetName;
-        public string IdName;
+        protected readonly SortedDictionary<string, object> Prms;
+        protected readonly string TrainPath;
+        protected readonly string TestPath;
+        protected readonly string TargetName;
+        protected readonly string IdName;
 
-        public bool IsParallel;
+        protected readonly bool IsParallel;
 
         public void PrintParams()
         {
@@ -19,11 +19,9 @@ namespace PtProject.Classifier
                 Logger.Log(p + ": " + Prms[p]);
         }
 
-        protected AbstractClassifier(/*IDictionary<string,object> prms=null*/)
+        protected AbstractClassifier()
         {
             Prms = new SortedDictionary<string, object>();
-            //foreach (var p in prms.Keys)
-            //    Prms.Add(p, prms[p]);
 
             string trp = ConfigReader.Read("TrainPath");
             if (trp != null) TrainPath = trp;
@@ -46,12 +44,12 @@ namespace PtProject.Classifier
             Prms.Add("IsParallel", IsParallel);
         }
 
-        abstract public void LoadData();
+        public abstract void LoadData();
 
-        abstract public ClassifierResult Build();
+        public abstract ClassifierResult Build();
 
-        abstract public ObjectClassificationResult PredictProba(double[] sarr);
+        public abstract ObjectClassificationResult PredictProba(double[] sarr);
 
-        abstract public int LoadClassifier();
+        public abstract int LoadClassifier();
     }
 }

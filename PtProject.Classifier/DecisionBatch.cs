@@ -275,7 +275,7 @@ namespace PtProject.Classifier
                 batch.OutBagEstimationsLogit = ResultCalc.GetResult(rlist, 0.05);
             }
 
-            Logger.Log("accCoeff: " + accCoeff + "; bag:" + batch.OutBagEstimations.AUC + "; logit:" + batch.OutBagEstimationsLogit?.AUC);
+            Logger.Log("train used: " + accCoeff + "; out_of_bag:" + batch.OutBagEstimations.AUC + "; out_of_bag_logit:" + batch.OutBagEstimationsLogit?.AUC);
         }
     }
 }

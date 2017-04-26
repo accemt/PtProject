@@ -80,7 +80,7 @@ namespace PtProject.Classifier
         /// Random Forest classifier
         /// </summary>
         // /// <param name="prms">parameters, described in app.config</param>
-        public DecisionForest(/*Dictionary<string,object> prms=null*/)// : base(/*prms*/)
+        public DecisionForest()
         {
             LoadDefaultParams();
         }
@@ -88,7 +88,7 @@ namespace PtProject.Classifier
         /// <summary>
         /// Default parameters for random-forest algorithm
         /// </summary>
-        public void LoadDefaultParams()
+        private void LoadDefaultParams()
         {
             string rfc = ConfigReader.Read("RfCoeff");
             if (rfc != null) RfCoeff = double.Parse(rfc.Replace(',', '.'), CultureInfo.InvariantCulture);
@@ -264,7 +264,7 @@ namespace PtProject.Classifier
                             rlist[idx].Target = _trainResult[id];
                             rlist[idx].Predicted = rlist[idx].Prob > 0.5 ? 1 : 0;
 
-                            accerr += Math.Pow(rlist[idx].Prob - rlist[idx].Target, 2);
+                            //accerr += Math.Pow(rlist[idx].Prob - rlist[idx].Target, 2);
 
                             idx++;
                         }
@@ -272,7 +272,7 @@ namespace PtProject.Classifier
                         Array.Sort(rlist, (o1, o2) => (1 - o1.Prob).CompareTo(1 - o2.Prob));
                         var clsRes = ResultCalc.GetResult(rlist, 0.05);
 
-                        accerr *= (1 - clsRes.AUC);
+                        accerr = clsRes.LogLoss;
 
                         Logger.Log("sub cls #" + k + " auc=" + clsRes.AUC.ToString("F10") + " eps=" + accerr + (accerr < bestMetric ? " [best]" : ""));
 
@@ -295,7 +295,7 @@ namespace PtProject.Classifier
                     }
 
                     ret.AddStepResult(testRes, i);
-                    Logger.Log("batch=" + i + " ok; train AUC=" + trainRes.AUC.ToString("F10") + " test AUC = " + testRes.AUC.ToString("F10"));
+                    Logger.Log("batch=" + i + " ok; train AUC=" + trainRes.AUC.ToString("F10") + "; test AUC = " + testRes.AUC.ToString("F10"));
                     sw.WriteLine(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + ";" + i + ";" + trainRes.AUC + ";" + testRes.AUC + ";" + IndexSortOrder);
                     sw.Flush();
                 }
@@ -564,14 +564,15 @@ namespace PtProject.Classifier
                 files = files.Skip(bucketSize * _bucketNum).Take(bucketSize).ToArray();
                 _bucketNum++;
             }
+            int clid = 0;
             foreach (var finfo in files)
             {
                 var cls = DecisionBatch.Load(finfo.FullName);
-                _classifiers.Add(_bucketNum++, cls);
+                _classifiers.Add(clid++, cls);
                 Logger.Log(finfo.Name + " loaded;");
             }
             Logger.Log("all trees loaded;");
-            return _bucketNum;
+            return clid;
         }
 
         /// <summary>
