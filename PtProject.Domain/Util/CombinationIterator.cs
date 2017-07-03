@@ -1,11 +1,8 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace PtProject.Domain
+namespace PtProject.Domain.Util
 {
     public class CombinationIterator : IEnumerator<string[]>
     {

@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace PtProject.Domain.Util
 {
@@ -11,7 +8,8 @@ namespace PtProject.Domain.Util
     {
         public static FinalFuncResult GetResult(IEnumerable<RocItem> rows, double prct)
         {
-            int listLen = rows.Count();
+            var scoreList = rows as RocItem[] ?? rows.ToArray();
+            int listLen = scoreList.Count();
             int nup = (int)(listLen * prct) + 1; // outflow set length
 
             int idx = 0;
@@ -19,10 +17,10 @@ namespace PtProject.Domain.Util
             int closed = 0;
             double loss = 0;
             double eps = 0.001;
-            foreach (var item in rows)
+            foreach (var item in scoreList)
             {
                 idx++;
-                //item.Predicted = idx <= nup ? 1 : 0;
+                item.Predicted = idx <= nup ? 1 : 0;
                 if (item.Predicted > 0 && item.Target > 0) tp++;
                 if (item.Target > 0) closed++;
 
@@ -33,7 +31,7 @@ namespace PtProject.Domain.Util
             }
 
             var points = new List<RocPoint>();
-            double auc = GetRocArea(rows, points, listLen);
+            double auc = GetRocArea(scoreList, points, listLen);
             double recall = tp / (double)closed;
             double precision = tp >= nup ? 1 : (tp / (double)nup);
             double logLoss = -loss / listLen;
@@ -65,10 +63,11 @@ namespace PtProject.Domain.Util
 
             double a = 0;
 
-            int p = scoreList.Count(item => item.Target == 1);
+            var rocItems = scoreList as RocItem[] ?? scoreList.ToArray();
+            int p = rocItems.Count(item => item.Target == 1);
             int n = length - p;
 
-            foreach (var item in scoreList)
+            foreach (var item in rocItems)
             {
                 if (item.Target != fPrev)
                 {
@@ -89,10 +88,10 @@ namespace PtProject.Domain.Util
             a += TRAPEZOID_AREA(n, fpPrev, p, tpPrev);
             points.Add(new RocPoint(fp / n, tp / p));
 
-            var dA = (double)a;
+            var dA = a;
             var dP = (double)p;
             var dN = (double)n;
-            a = (double)(dA / (dP * dN));
+            a = dA / (dP * dN);
 
             if (Math.Abs(a - 0) < 0.0000000000001) a = 1;
 
@@ -126,10 +125,10 @@ namespace PtProject.Domain.Util
         public double X;
         public double Y;
 
-        public RocPoint(double _x, double _y)
+        public RocPoint(double x, double y)
         {
-            X = _x;
-            Y = _y;
+            X = x;
+            Y = y;
         }
     }
 }

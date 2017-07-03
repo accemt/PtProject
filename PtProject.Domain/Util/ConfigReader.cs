@@ -1,9 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Configuration;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace PtProject.Domain.Util
 {
@@ -20,8 +16,9 @@ namespace PtProject.Domain.Util
                 if (string.IsNullOrWhiteSpace(value))
                     value = null;
             }
-            catch (Exception)
+            catch (Exception e)
             {
+                Logger.Log(e);
             }
 
             return value;

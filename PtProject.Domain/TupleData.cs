@@ -1,8 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace PtProject.Domain
 {
@@ -59,8 +57,8 @@ namespace PtProject.Domain
 
         public override bool Equals(object obj)
         {
-            var other = (TupleData)obj;
-
+            var other = obj as TupleData;
+            if (other == null) return false;
             if (Vals.Count != other.Vals.Count) return false;
 
             var en1 = Vals.GetEnumerator();
@@ -78,6 +76,9 @@ namespace PtProject.Domain
 
                 hasnext = en1.MoveNext() && en2.MoveNext();
             }
+
+            en1.Dispose();
+            en2.Dispose();
 
             return true;
         }
