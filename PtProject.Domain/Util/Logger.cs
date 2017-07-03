@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Configuration;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
@@ -11,7 +10,7 @@ namespace PtProject.Domain.Util
         private static readonly string RootHosting;
         private static readonly object SyncObj = new object();
         public static bool IsConsole = true;
-        public static bool Enabled = false; // for lib mode
+        public static bool Enabled; // for lib mode
 
         static Logger()
         {
@@ -62,7 +61,7 @@ namespace PtProject.Domain.Util
                 new FileStream(dinfo.FullName + "\\log.txt", FileMode.Append, FileAccess.Write),
                 Encoding.GetEncoding(1251)))
             {
-                if (message != null) message = message.Trim();
+                message = message?.Trim();
 
                 sw.WriteLine(message);
                 sw.Close();
