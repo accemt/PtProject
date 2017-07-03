@@ -162,7 +162,8 @@ namespace PtProject.Classifier
 
             // loading train file
             _trainLoader.IsLoadForLearning = true;
-            _trainLoader.AddIdsString(IdName);
+            if (IdName!=null)
+                _trainLoader.AddIdsString(IdName);
             _trainLoader.Load(TrainPath);
 
             foreach (var key in _trainLoader.TargetProb.Keys)

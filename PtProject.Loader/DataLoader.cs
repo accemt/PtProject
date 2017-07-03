@@ -353,9 +353,9 @@ namespace PtProject.Loader
             foreach (var sidx in _idIdx.Keys)
             {
                 if (nidx == 0)
-                    sb.Append(blocks[sidx]);
+                    sb.Append(blocks[nidx]);
                 else
-                    sb.Append(";" + blocks[sidx]);
+                    sb.Append(";" + blocks[nidx]);
                 nidx++;
             }
             return sb.ToString();
