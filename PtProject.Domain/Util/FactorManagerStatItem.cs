@@ -1,9 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace PtProject.Domain.Util
 {
@@ -31,7 +27,6 @@ namespace PtProject.Domain.Util
             string[] lines = File.ReadAllLines(path);
 
             var idxByName = new Dictionary<string, int>();
-            var nameByIdx = new Dictionary<int, string>();
 
             int idx = 0;
             foreach (var line in lines)

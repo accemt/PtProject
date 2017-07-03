@@ -1,30 +1,26 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace PtProject.Domain.Util
 {
     public class RandomGen
     {
-        private static Random _rnd = new Random(DateTime.Now.Millisecond + DateTime.Now.Second * 1000 + DateTime.Now.Second * 1000 * 60);
-        private static object _locker = new object();
+        private static readonly Random Rnd = new Random(DateTime.Now.Millisecond + DateTime.Now.Second * 1000 + DateTime.Now.Second * 1000 * 60);
+        private static readonly object Locker = new object();
 
         public static double GetDouble()
         {
-            double val = 0;
-            lock (_locker)
+            lock (Locker)
             {
-                val = _rnd.NextDouble();
+                return Rnd.NextDouble();
             }
-            
-            return val;
         }
 
         public static int Next(int n)
         {
-            return _rnd.Next(n);
+            lock (Locker)
+            {
+                return Rnd.Next(n);
+            }
         }
 
         public static double GetNormal(double mean, double stddev)
