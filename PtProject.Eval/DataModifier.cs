@@ -1,16 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 namespace PtProject.Eval
 {
     public class DataModifier
     {
         public IDictionary<string, ExprDesc> Fields { get; private set; }
-        private Dictionary<ExprDesc, Expression> _exprs = new Dictionary<ExprDesc, Expression>();
+        private readonly Dictionary<ExprDesc, Expression> _exprs = new Dictionary<ExprDesc, Expression>();
 
         public DataModifier(IDictionary<string, ExprDesc> fields)
         {
@@ -33,8 +30,7 @@ namespace PtProject.Eval
                 string expr = blocks[0];
                 if (string.IsNullOrWhiteSpace(expr)) continue;
 
-                var descr = new ExprDesc();
-                descr.ExprStr = expr;
+                var descr = new ExprDesc(expr);
                 descr.Idx = idx;
                 descr.Alias = blocks.Length >= 2 ? (string.IsNullOrWhiteSpace(blocks[1]) ? null : blocks[1]) : null;
 
@@ -66,7 +62,7 @@ namespace PtProject.Eval
 
             foreach (var desc in Fields.Values)
             {
-                Expression exp = null;
+                Expression exp;
                 if (_exprs.ContainsKey(desc))
                     exp = _exprs[desc];
                 else

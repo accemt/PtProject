@@ -1,16 +1,17 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace PtProject.Eval
 {
     public class ExprDesc : IComparable
     {
-        public string ExprStr { get; set; }
+        public string ExprStr { get; }
         public int Idx { get; set; }
         public string Alias { get; set; }
+
+        public ExprDesc(string str)
+        {
+            ExprStr = str;
+        }
 
         public override bool Equals(object obj)
         {
@@ -33,7 +34,7 @@ namespace PtProject.Eval
         {
             var other = obj as ExprDesc;
             if (other == null) return 0;
-            return ExprStr.CompareTo(other.ExprStr);
+            return String.Compare(ExprStr, other.ExprStr, StringComparison.Ordinal);
         }
     }
 }

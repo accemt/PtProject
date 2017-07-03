@@ -3,25 +3,22 @@ using PtProject.Domain.Util;
 using System;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace PtProject.Eval
 {
     public class Expression
     {
-        private static int ExpNum;
+        private static int _expNum;
 
-        private string _expression;
-        private int _n;
+        private readonly string _expression;
+        private readonly int _n;
         private Assembly _assembly;
 
         public Expression(string expression)
         {
             _expression = expression;
-            _n = ExpNum++;
+            _n = _expNum++;
         }
 
         public void Compile()
@@ -49,7 +46,7 @@ namespace PtProject.Eval
             catch (Exception e)
             {
                 Logger.Log(e);
-                throw e;
+                throw;
             }
         }
 
