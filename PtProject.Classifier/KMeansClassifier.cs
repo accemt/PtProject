@@ -26,14 +26,11 @@ namespace PtProject.Classifier
         private double[] _vars;
         private double[] _corrs;
 
-        public KMeansClassifier(/*Dictionary<string,object> prms=null*/) //: base(/*prms*/)
+        public KMeansClassifier()
         {
             LoadDefaultParams();
         }
 
-        /// <summary>
-        /// Default parameters for random-forest algorithm
-        /// </summary>
         public void LoadDefaultParams()
         {
             string kn = ConfigReader.Read("KNeighbors");
@@ -66,8 +63,8 @@ namespace PtProject.Classifier
             // sum per column
             foreach (var row in _trainLoader.Rows)
             {
-                for (int i = 0; i < row.Coeffs.Length; i++)
-                    _avgs[i] += row.Coeffs[i];
+                for (int i = 0; i < row.Values.Length; i++)
+                    _avgs[i] += row.Values[i];
                 tavg += row.Target;
             }
 
@@ -83,10 +80,10 @@ namespace PtProject.Classifier
             {
                 double t2 = row.Target - tavg;
 
-                for (int i = 0; i < row.Coeffs.Length; i++)
+                for (int i = 0; i < row.Values.Length; i++)
                 {
-                    _vars[i] += Math.Pow(row.Coeffs[i] - _avgs[i], 2);
-                    double t1 = row.Coeffs[i] - _avgs[i];
+                    _vars[i] += Math.Pow(row.Values[i] - _avgs[i], 2);
+                    double t1 = row.Values[i] - _avgs[i];
                     _corrs[i] += t1 * t2;
                     t1Sq += Math.Pow(t1, 2);
                     t2Sq += Math.Pow(t2, 2);
@@ -104,10 +101,10 @@ namespace PtProject.Classifier
             // modifying data
             foreach (var row in _trainLoader.Rows)
             {
-                for (int i = 0; i < row.Coeffs.Length; i++)
+                for (int i = 0; i < row.Values.Length; i++)
                 {
-                    row.Coeffs[i] -= _avgs[i];
-                    row.Coeffs[i] /= _vars[i]>0?Math.Sqrt(_vars[i]):1;
+                    row.Values[i] -= _avgs[i];
+                    row.Values[i] /= _vars[i]>0?Math.Sqrt(_vars[i]):1;
                 }
             }
 
@@ -191,9 +188,9 @@ namespace PtProject.Classifier
         private Tuple<double, double> ProceedRow(double[] sarr, Domain.DataRow<double> row)
         {
             double rsum = 0;
-            for (int i = 0; i < row.Coeffs.Length; i++)
+            for (int i = 0; i < row.Values.Length; i++)
             {
-                double diff = (sarr[i] - row.Coeffs[i]);// * _corrs[i];
+                double diff = (sarr[i] - row.Values[i]);// * _corrs[i];
                 rsum += Math.Pow(diff, Pow);
             }
             double dist = Math.Pow(rsum, 1 / Pow);

@@ -119,13 +119,13 @@ namespace PtProject.Calc
         private static double[] GetRowValues(DataModifier modifier, DataLoader loader, Domain.DataRow<float> row)
         {
             if (modifier == null)
-                return Array.ConvertAll(row.Coeffs, x => (double)x);
+                return Array.ConvertAll(row.Values, x => (double)x);
 
             var vals = new Dictionary<string, double>();
-            for (int i = 0; i < row.Coeffs.Length; i++)
+            for (int i = 0; i < row.Values.Length; i++)
             {
                 string colname = loader.RowColumnByIdx[i];
-                vals.Add(colname, row.Coeffs[i]);
+                vals.Add(colname, row.Values[i]);
             }
             var mvals = modifier.GetModifiedDataVector(vals);
             return mvals;

@@ -6,8 +6,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using FType = System.Double;
 
 namespace PtProject.Classifier
@@ -18,7 +16,7 @@ namespace PtProject.Classifier
         private DataLoader<FType> _testLoader;
         private Dictionary<string, List<double[]>> _testDataDict;
         private Dictionary<string, int> _resultDict;
-        private ProblemCreator _problemCreator = new ProblemCreator();
+        private readonly ProblemCreator _problemCreator = new ProblemCreator();
         private Problem _trainProblem;
         private Problem _testProblem;
         private Model _model;
@@ -181,7 +179,7 @@ namespace PtProject.Classifier
                 var txy = new double[_testLoader.NVars];
                 for (int k = 0; k < _testLoader.NVars; k++)
                 {
-                    txy[k] = row.Coeffs[k];
+                    txy[k] = row.Values[k];
                 }
                 if (!_testDataDict.ContainsKey(row.Id))
                     _testDataDict.Add(row.Id, new List<double[]>());
@@ -191,7 +189,7 @@ namespace PtProject.Classifier
 
         private object ProceedRow(DataRow<FType> row)
         {
-            _problemCreator.ReadRow(row.Coeffs, row.Target);
+            _problemCreator.ReadRow(row.Values, row.Target);
             return _obj;
         }
 

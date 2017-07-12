@@ -32,8 +32,8 @@ namespace PtProject.Dependency
             // сначала находим матожидание
             foreach (var row in loader.Rows)
             {
-                T fval1 = row.Coeffs[col1idx];
-                T fval2 = row.Coeffs[col2idx];
+                T fval1 = row.Values[col1idx];
+                T fval2 = row.Values[col2idx];
 
                 sum1 += Convert.ToDouble(fval1);
                 sum2 += Convert.ToDouble(fval2);
@@ -50,10 +50,10 @@ namespace PtProject.Dependency
             double disp2 = 0;
             foreach (var row in loader.Rows)
             {
-                ds1 = (Convert.ToDouble(row.Coeffs[col1idx]) - result.F1Avg);
+                ds1 = (Convert.ToDouble(row.Values[col1idx]) - result.F1Avg);
                 disp1 += ds1 * ds1;
 
-                ds2 = (Convert.ToDouble(row.Coeffs[col2idx]) - result.F2Avg);
+                ds2 = (Convert.ToDouble(row.Values[col2idx]) - result.F2Avg);
                 disp2 += ds2 * ds2;
 
                 cov += ds1 * ds2;

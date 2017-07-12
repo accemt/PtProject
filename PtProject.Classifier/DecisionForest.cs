@@ -603,7 +603,7 @@ namespace PtProject.Classifier
                     _testResult.Add(row.Id, Convert.ToInt32(row.Target));
 
                 // сохраняем даные для расчета
-                _testDataDict.Add(row.Id, row.Coeffs);
+                _testDataDict.Add(row.Id, row.Values);
             }
 
             for (int i=0;i<_trainLoader.TotalDataLines;i++)

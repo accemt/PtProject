@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 
 namespace PtProject.Domain.Util
@@ -23,16 +22,19 @@ namespace PtProject.Domain.Util
             }
         }
 
-        private bool HasNext()
+        private bool HasNext
         {
-            if (_indexes[_n - 1] < _array.Length)
-                return true;
-            return false;
+            get
+            {
+                if (_indexes[_n - 1] < _array.Length)
+                    return true;
+                return false;
+            }
         }
 
         public bool MoveNext()
         {
-            if (!HasNext()) return false;
+            if (!HasNext) return false;
 
 
             var ret = new string[_n];
@@ -67,19 +69,14 @@ namespace PtProject.Domain.Util
 
         public void Reset()
         {
-            throw new NotImplementedException();
         }
 
-        public string[] Current { get { return _current; } }
+        public string[] Current => _current;
 
-        object IEnumerator.Current
-        {
-            get { return _current; }
-        }
+        object IEnumerator.Current => _current;
 
         public void Dispose()
         {
-            throw new NotImplementedException();
         }
     }
 }

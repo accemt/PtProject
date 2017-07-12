@@ -121,8 +121,8 @@ namespace PtProject.Dependency
                         foreach (var row in loader.Rows)
                         {
                             // исходные признаки
-                            FType fval1 = row.Coeffs[col1idx];
-                            FType fval2 = row.Coeffs[col2idx];
+                            FType fval1 = row.Values[col1idx];
+                            FType fval2 = row.Values[col2idx];
 
                             // модифицированные признаки
                             FType val1 = (long)(Math.Round((fval1 - colStats.F1Avg) / colStats.F1Stddev * factor));

@@ -6,14 +6,14 @@ namespace PtProject.Domain
     {
         public string Id;
         public T Target;
-        public T[] Coeffs;
+        public T[] Values;
 
         public static explicit operator DataRow<object>(DataRow<T> row)
         {
             var nrow = new DataRow<object>();
             nrow.Id = row.Id;
             nrow.Target = row.Target;
-            nrow.Coeffs = row.Coeffs.Cast<object>().ToArray();
+            nrow.Values = row.Values.Cast<object>().ToArray();
             return nrow;
         }
 

@@ -123,13 +123,13 @@ namespace PtProject.Modifier
         private static double[] GetRowValues(DataRow<FType> row)
         {
             if (_modifier == null)
-                return Array.ConvertAll(row.Coeffs, x => (double)x);
+                return Array.ConvertAll(row.Values, x => (double)x);
 
             var vals = new Dictionary<string, double>();
-            for (int i = 0; i < row.Coeffs.Length; i++)
+            for (int i = 0; i < row.Values.Length; i++)
             {
                 string colname = _loader.RowColumnByIdx[i];
-                vals.Add(colname, row.Coeffs[i]);
+                vals.Add(colname, row.Values[i]);
             }
             var mvals = _modifier.GetModifiedDataVector(vals);
             return mvals;

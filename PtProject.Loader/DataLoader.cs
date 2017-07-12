@@ -12,12 +12,12 @@ namespace PtProject.Loader
     public class DataLoader<T> : DataLoaderBase
     {
         /// <summary>
-        /// By default loading strategy data will be load in that list
+        /// By default data will be load in the list
         /// </summary>
         public readonly List<DataRow<T>> Rows = new List<DataRow<T>>();
 
         /// <summary>
-        /// For machine-learning data will be load in that array
+        /// For machine-learning data will be load in the 2d array
         /// </summary>
         public T[,] LearnRows;
 
@@ -250,7 +250,7 @@ namespace PtProject.Loader
                                 }
                             }
 
-                            row.Coeffs = carray;
+                            row.Values = carray;
                             if (ProceedRowFunc == null) // don't save row in case of ProceedRowFunc not null
                                 Rows.Add(row);
                             else
@@ -349,14 +349,12 @@ namespace PtProject.Loader
         private string GetStringId(string[] blocks)
         {
             var sb = new StringBuilder();
-            int nidx = 0;
-            foreach (var sidx in _idIdx.Keys)
+            for (int nidx=0;nidx<_idIdx.Keys.Count;nidx++)
             {
                 if (nidx == 0)
                     sb.Append(blocks[nidx]);
                 else
                     sb.Append(";" + blocks[nidx]);
-                nidx++;
             }
             return sb.ToString();
         }
